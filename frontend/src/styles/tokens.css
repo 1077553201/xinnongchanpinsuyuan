@@ -1,0 +1,100 @@
+/* ==========================================================================
+   设计令牌 · 晨光玻璃（Morning-Glass）
+   --------------------------------------------------------------------------
+   主题取自农产品检验的真实场景：温室玻璃、检验玻片、晨光透射。
+   玻璃只承载功能表面，高光全场只保留一处，避免「模糊卡片 + 紫蓝渐变」的通用观感。
+   ========================================================================== */
+
+:root {
+  /* ---- 色彩（6 个具名基色） ---------------------------------------------- */
+  --ink: #0e211b; /* 墨绿近黑 —— 正文、深色表面 */
+  --field: #1e5b48; /* 田垄绿 —— 主品牌、导航、确认态 */
+  --mist: #e9efea; /* 晨雾 —— 浅表面、分隔 */
+  --seal: #be3a2b; /* 印泥朱 —— 唯一高风险色，仅用于校验印章与告警 */
+  --grain: #c79a34; /* 稻穗金 —— 数据高亮、待确认态 */
+  --slate: #6b7a73; /* 石墨 —— 次级文字 */
+
+  /* 派生色（由基色计算，不作为独立设计选择） */
+  --ink-70: rgba(14, 33, 27, 0.7);
+  --ink-55: rgba(14, 33, 27, 0.55);
+  --ink-40: rgba(14, 33, 27, 0.4);
+  --ink-16: rgba(14, 33, 27, 0.16);
+  --ink-08: rgba(14, 33, 27, 0.08);
+  --field-soft: #2c7a62;
+  --field-tint: rgba(30, 91, 72, 0.1);
+  --seal-tint: rgba(190, 58, 43, 0.1);
+  --grain-tint: rgba(199, 154, 52, 0.14);
+  --slate-tint: rgba(107, 122, 115, 0.14);
+
+  /* ---- 晨光背景（柔光来源） --------------------------------------------- */
+  --dawn-top: #f5f9f1;
+  --dawn-mid: #e6efe6;
+  --dawn-bottom: #d7e7dd;
+  --glow-warm: #f7e4b9;
+  --glow-cool: #cfe6d6;
+  --glow-pale: #ffffff;
+
+  /* ---- 玻璃表面 --------------------------------------------------------- */
+  --glass-fill: rgba(255, 255, 255, 0.46);
+  --glass-fill-strong: rgba(255, 255, 255, 0.68);
+  --glass-fill-quiet: rgba(255, 255, 255, 0.28);
+  --glass-stroke: rgba(255, 255, 255, 0.62);
+  --glass-hairline: rgba(14, 33, 27, 0.07);
+  --glass-blur: 20px;
+  --glass-blur-strong: 34px;
+
+  /* ---- 状态色（与后端枚举一一对应） -------------------------------------- */
+  --state-confirmed: var(--field);
+  --state-confirmed-bg: var(--field-tint);
+  --state-pending: #a97c14;
+  --state-pending-bg: var(--grain-tint);
+  --state-failed: var(--seal);
+  --state-failed-bg: var(--seal-tint);
+  --state-disabled: var(--slate);
+  --state-disabled-bg: var(--slate-tint);
+
+  /* ---- 字体（三个角色） -------------------------------------------------- */
+  --font-display: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'SimSun', serif;
+  --font-body: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Mono', 'SFMono-Regular', Consolas, monospace;
+
+  --fs-hero: clamp(1.75rem, 1.15rem + 3.2vw, 2.5rem);
+  --fs-title: clamp(1.375rem, 1.1rem + 1.6vw, 1.75rem);
+  --fs-h2: 1.0625rem;
+  --fs-h3: 0.9375rem;
+  --fs-body: 0.9375rem;
+  --fs-sm: 0.8125rem;
+  --fs-xs: 0.75rem;
+  --fs-micro: 0.6875rem;
+
+  --lh-tight: 1.25;
+  --lh-body: 1.65;
+
+  /* ---- 间距 / 圆角 / 阴影 ----------------------------------------------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 72px;
+
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-pill: 999px;
+
+  --shadow-soft: 0 24px 56px -34px rgba(14, 33, 27, 0.42);
+  --shadow-lift: 0 2px 6px -2px rgba(14, 33, 27, 0.12), 0 34px 72px -44px rgba(14, 33, 27, 0.5);
+  --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --dur-fast: 160ms;
+  --dur-base: 260ms;
+  --dur-slow: 520ms;
+
+  --content-max: 520px;
+  --console-max: 1180px;
+}

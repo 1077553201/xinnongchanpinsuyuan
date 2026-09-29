@@ -1,0 +1,125 @@
+/* ==========================================================================
+   玻璃基元：柔光玻璃表面
+   --------------------------------------------------------------------------
+   规则（克制执行）：
+   1. 玻璃只用于承载功能的表面（卡片、面板、工具条），不做装饰性铺陈。
+   2. 全场只保留一处高强度柔光（.glow-* 只在印章与首个面板上使用）。
+   3. 阴影只用两层：一层柔散 + 一层顶部内高光，避免堆叠 box-shadow。
+   ========================================================================== */
+
+.glass {
+  position: relative;
+  background: var(--glass-fill);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  border: 1px solid var(--glass-stroke);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft), var(--shadow-inset-top);
+}
+
+/* 玻璃上沿的一线柔光，模拟光线擦过玻片边缘 */
+.glass::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+/* ---- 表面变体 ---- */
+
+.glass-strong {
+  background: var(--glass-fill-strong);
+  backdrop-filter: blur(var(--glass-blur-strong)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--glass-blur-strong)) saturate(160%);
+}
+
+.glass-quiet {
+  background: var(--glass-fill-quiet);
+}
+
+.glass-raised {
+  box-shadow: var(--shadow-lift), var(--shadow-inset-top);
+}
+
+.glass-flat {
+  box-shadow: none;
+}
+
+.glass-pill {
+  border-radius: var(--radius-pill);
+}
+
+/* ---- 内边距 ---- */
+
+.glass-pad {
+  padding: var(--space-4) var(--space-5);
+}
+
+.glass-pad-tight {
+  padding: var(--space-3) var(--space-4);
+}
+
+.glass-pad-lg {
+  padding: var(--space-5) var(--space-6);
+}
+
+/* ---- 可交互玻璃 ---- */
+
+.glass-interactive {
+  transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
+}
+
+.glass-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lift), var(--shadow-inset-top);
+}
+
+/* ---- 柔光（克制使用，全场不超过一处主光） ---- */
+
+.glow-field {
+  box-shadow: 0 0 64px -16px rgba(30, 91, 72, 0.42), var(--shadow-soft), var(--shadow-inset-top);
+}
+
+.glow-warm {
+  box-shadow: 0 0 60px -14px rgba(199, 154, 52, 0.48), var(--shadow-soft), var(--shadow-inset-top);
+}
+
+.glow-seal {
+  box-shadow: 0 0 56px -14px rgba(190, 58, 43, 0.42), var(--shadow-soft), var(--shadow-inset-top);
+}
+
+/* ---- 载入骨架 ---- */
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--glass-fill-quiet);
+  border-radius: var(--radius-sm);
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  animation: glass-shimmer 1.6s var(--ease-out) infinite;
+}
+
+@keyframes glass-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* ---- 分隔线 ---- */
+
+.hairline {
+  height: 1px;
+  background: var(--glass-hairline);
+  border: 0;
+}

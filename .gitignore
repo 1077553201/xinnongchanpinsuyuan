@@ -1,0 +1,48 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+# 前端 env 文件不含密钥，仅记录接口前缀与本地代理目标，需要纳入版本管理
+!frontend/.env.development
+!frontend/.env.production
+!frontend/.env.mock
+.local/
+*.pem
+*.key
+*.crt
+*.p12
+*.keystore
+
+# FISCO 账户私钥文件与本地覆盖配置（含真实私钥，绝不提交）
+contract/*_key_*.txt
+backend/src/main/resources/application-local.properties
+
+# Java / Maven
+target/
+*.class
+.mvn/wrapper/maven-wrapper.jar
+
+# Node / Vue
+node_modules/
+dist/
+.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+# Vite 打包配置文件时产生的临时文件
+*.timestamp-*.mjs
+
+# IDE and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs and runtime files
+logs/
+*.log
+uploaded_images/
+
+# 本地设计自检产物（临时截图与诊断脚本）
+.workbuddy/preview/

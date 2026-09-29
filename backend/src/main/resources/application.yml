@@ -1,0 +1,67 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: agri-trace-backend
+  profiles:
+    active: ${APP_ENV:local}
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:agri_trace}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:replace_me}
+    password: ${DB_PASSWORD:replace_me}
+  jackson:
+    time-zone: Asia/Shanghai
+    default-property-inclusion: non_null
+
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+
+trace:
+  public-trace-base-url: ${PUBLIC_TRACE_BASE_URL:http://127.0.0.1:5173/}
+  fisco:
+    enabled: ${FISCO_ENABLED:false}
+    group-id: ${FISCO_GROUP_ID:group0}
+    peers: ${FISCO_PEERS:127.0.0.1:20200}
+    sdk-cert-path: ${FISCO_SDK_CERT_PATH:}
+    account-keystore-path: ${FISCO_ACCOUNT_KEYSTORE_PATH:}
+    account-password: ${FISCO_ACCOUNT_PASSWORD:}
+    contract-address: ${FISCO_CONTRACT_ADDRESS:}
+  mqtt:
+    enabled: ${MQTT_ENABLED:false}
+    host: ${MQTT_HOST:127.0.0.1}
+    port: ${MQTT_PORT:1883}
+    username: ${MQTT_USERNAME:}
+    password: ${MQTT_PASSWORD:}
+    client-id: ${MQTT_CLIENT_ID:agri-trace-backend-local}
+    telemetry-topic: ${MQTT_TOPIC_TELEMETRY:agri/+/+/telemetry}
+    status-topic: ${MQTT_TOPIC_STATUS:agri/+/+/status}
+    event-topic: ${MQTT_TOPIC_EVENT:agri/+/+/event}
+    qos: ${MQTT_QOS:1}
+    keep-alive-seconds: ${MQTT_KEEP_ALIVE_SECONDS:30}
+    clean-session: ${MQTT_CLEAN_SESSION:true}
+  iot:
+    window-minutes: ${IOT_WINDOW_MINUTES:5}
+    offline-timeout-seconds: ${IOT_OFFLINE_TIMEOUT_SECONDS:300}
+    auto-register-gateway: ${IOT_AUTO_REGISTER_GATEWAY:true}
+    auto-register-device: ${IOT_AUTO_REGISTER_DEVICE:true}
+    alerts:
+      temperature:
+        min: ${IOT_ALERT_TEMPERATURE_MIN:-10}
+        max: ${IOT_ALERT_TEMPERATURE_MAX:45}
+      humidity:
+        min: ${IOT_ALERT_HUMIDITY_MIN:20}
+        max: ${IOT_ALERT_HUMIDITY_MAX:95}
+      soil_moisture:
+        min: ${IOT_ALERT_SOIL_MOISTURE_MIN:15}
+        max: ${IOT_ALERT_SOIL_MOISTURE_MAX:85}
+      light:
+        min: ${IOT_ALERT_LIGHT_MIN:0}
+        max: ${IOT_ALERT_LIGHT_MAX:120000}
+  ai:
+    provider: ${AI_PROVIDER:disabled}
+    base-url: ${AI_BASE_URL:}
+    api-key: ${AI_API_KEY:}
+    model: ${AI_MODEL:}
