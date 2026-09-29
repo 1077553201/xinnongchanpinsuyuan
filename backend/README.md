@@ -21,7 +21,13 @@ system.hexPrivateKey=${SYSTEM_HEX_PRIVATE_KEY:}
 contract.agriTraceAddress=0x0102e8b6fc8cdf9626fddc1c3ea8c1e79b3fce94
 ```
 
-开发期真实链调用需要在本机环境变量或本地 `.env` 中设置 `SYSTEM_HEX_PRIVATE_KEY`。不要把真实私钥、证书正文、证书密码写入 README、docs 或提交记录。
+开发期真实链调用需要本机提供 `SYSTEM_HEX_PRIVATE_KEY`，两种方式任选其一：
+
+1. 在 IDE 运行配置或系统环境变量中设置 `SYSTEM_HEX_PRIVATE_KEY`；
+2. 在 `backend/src/main/resources/application-local.properties` 中写 `system.hexPrivateKey=...`。
+   该文件已被 `.gitignore` 忽略；本项目默认 profile 为 `local`，会自动覆盖 `application.properties` 中的同名配置。
+
+不要把真实私钥、证书正文、证书密码写入 README、docs 或提交记录。
 
 ## 链上 smoke API
 
