@@ -1,6 +1,7 @@
 package org.nongchanpin.controller;
 
 import org.nongchanpin.model.CommonResponse;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -9,6 +10,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(DuplicateKeyException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public CommonResponse handleDuplicate(DuplicateKeyException ex) {
+        return new CommonResponse("409", "business code already exists", null);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public CommonResponse handleValidation(MethodArgumentNotValidException ex) {

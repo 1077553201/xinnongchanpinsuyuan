@@ -38,7 +38,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'products',
         name: 'admin-products',
-        component: () => import('@/views/admin/StagePlaceholder.vue'),
+        component: () => import('@/views/admin/CatalogView.vue'),
         meta: { title: '产品与批次', eyebrow: 'Catalog' },
       },
       {

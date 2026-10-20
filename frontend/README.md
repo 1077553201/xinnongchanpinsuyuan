@@ -1,6 +1,6 @@
 # 农产品可信溯源 · 前端
 
-当前处于**前端第 1 阶段：联调基线与基础体验**。总览、链状态页和公众查询页已有实现；产品、单品码、IoT、NFC、AI 管理页仍为骨架。阶段记录及下一步接口约定见 [FRONTEND_STAGE1.md](../docs/FRONTEND_STAGE1.md)。
+当前已完成**前端第 2 阶段：产品与批次管理**。产品台账支持搜索、分页、新建和详情；生产批次支持筛选、新建、关闭及召回。单品码、IoT、NFC、AI 管理页仍为骨架。见 [第 1 阶段](../docs/FRONTEND_STAGE1.md)、[第 2 阶段](../docs/FRONTEND_STAGE2.md)。
 
 ## 技术栈
 
@@ -102,7 +102,8 @@ frontend/
 | `/login` | 登录 | 占位（后端无鉴权模块） |
 | `/admin` | 总览 | 已接真实接口 |
 | `/admin/chain` | 链上交易 | 已接链状态；交易列表待后端补接口 |
-| `/admin/products`、`/items`、`/iot`、`/nfc`、`/ai` | 管理页 | 版式骨架 + 实现清单 |
+| `/admin/products` | 产品与批次 | 已完成真实创建、关闭、召回及链上状态联调 |
+| `/admin/items`、`/admin/iot`、`/admin/nfc`、`/admin/ai` | 管理页 | 版式骨架 + 实现清单 |
 
 ## 与后端对接
 

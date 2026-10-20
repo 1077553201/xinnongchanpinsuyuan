@@ -3,6 +3,7 @@ package org.nongchanpin.service;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.nongchanpin.chain.ChainService;
 import org.nongchanpin.config.ContractConfig;
@@ -38,6 +39,13 @@ public class BatchService {
         ProductEntity product = productMapper.findById(request.getProductId());
         if (product == null) {
             throw new IllegalArgumentException("product not found");
+        }
+        if (!Objects.equals(product.getOrganizationId(), request.getOrganizationId())) {
+            throw new IllegalArgumentException("batch organization must match product organization");
+        }
+        if (request.getPlantDate() != null && request.getHarvestDate() != null
+                && request.getHarvestDate().isBefore(request.getPlantDate())) {
+            throw new IllegalArgumentException("harvest date must not precede plant date");
         }
         String metadataJson = payloadService.canonicalJson(request.getMetadata());
         ProductBatchEntity batch = new ProductBatchEntity();
@@ -89,6 +97,9 @@ public class BatchService {
     @Transactional
     public ProductBatchEntity close(Long id, CloseBatchRequest request) {
         ProductBatchEntity batch = get(id);
+        if (!"ACTIVE".equals(batch.getStatus())) {
+            throw new IllegalArgumentException("only active batches can be closed or recalled");
+        }
         if (!AgriTraceCodes.isValidBatchCloseStatus(request.getStatus())) {
             throw new IllegalArgumentException("batch status must be 2(CLOSED) or 3(RECALL)");
         }

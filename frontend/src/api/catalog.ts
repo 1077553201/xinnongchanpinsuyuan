@@ -20,6 +20,10 @@ export function listProducts(): Promise<ProductEntity[]> {
   return get<ProductEntity[]>('/products')
 }
 
+export function getProduct(id: number): Promise<ProductEntity> {
+  return get<ProductEntity>(`/products/${id}`)
+}
+
 export function createProduct(body: CreateProductRequest): Promise<ProductEntity> {
   return post<ProductEntity>('/products', body)
 }
@@ -28,6 +32,10 @@ export function createProduct(body: CreateProductRequest): Promise<ProductEntity
 
 export function listBatches(): Promise<ProductBatchEntity[]> {
   return get<ProductBatchEntity[]>('/batches')
+}
+
+export function getBatch(id: number): Promise<ProductBatchEntity> {
+  return get<ProductBatchEntity>(`/batches/${id}`)
 }
 
 export function createBatch(body: CreateBatchRequest): Promise<ProductBatchEntity> {

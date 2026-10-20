@@ -51,6 +51,8 @@ contract.agriTraceAddress=0x0102e8b6fc8cdf9626fddc1c3ea8c1e79b3fce94
 
 ## 业务 API
 
+产品与批次管理补充约定：编码重复返回 HTTP 409（`code: "409"`）；产品/批次请求校验正整数 ID 和字段长度；批次机构必须与产品一致，采收日期不得早于种植日期。已关闭或召回的批次不能再次关闭/召回。摘要序列化支持 Java 日期类型，`LocalDate` 使用稳定的 `yyyy-MM-dd` 文本。
+
 第三阶段新增了业务服务 API，会写入 MySQL 并按动作创建 `chain_transaction`：
 
 - `POST /api/products`
