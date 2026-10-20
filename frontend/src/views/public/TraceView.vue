@@ -115,6 +115,9 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
 
     <!-- 正文 -->
     <template v-else-if="trace">
+      <GlassPanel v-if="batch?.status === 'RECALL' || item?.status === 'RECALL'" class="recall-banner" role="alert">
+        <strong>该产品或批次已召回</strong><p>请停止使用并联系销售方处理。摘要核验通过不代表当前产品仍适合销售或食用。</p>
+      </GlassPanel>
       <GlassPanel padded="large" glow="field" class="hero">
         <div class="hero-grid">
           <div class="hero-text">
@@ -174,8 +177,8 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
 
       <GlassPanel padded="large" class="block">
         <header class="block-head">
-          <h2 class="block-title display">近期环境记录</h2>
-          <span class="muted tiny">批次归属尚未核实</span>
+          <h2 class="block-title display">本批次环境记录</h2>
+          <span class="muted tiny">关联到当前批次的设备采样</span>
         </header>
         <div v-if="environments.length" class="metrics">
           <MetricBar
@@ -189,7 +192,6 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
             :chain-status="env.chainStatus"
           />
         </div>
-        <p class="muted tiny">以下为系统近期采样，尚未确认与当前批次的关联。</p>
         <p v-if="!environments.length" class="muted empty">暂无可用的环境采样。</p>
       </GlassPanel>
 
@@ -245,8 +247,8 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
 
       <footer class="foot">
         <p class="muted tiny">
-          本页展示业务明细与保存的交易记录。摘要一致仅表示与保存记录相符，
-          本次查询未实时读取链上摘要。
+          本页展示业务明细与交易记录。只有本次链上读取成功且摘要核对一致时才显示通过；
+          环境记录按当前批次关联展示，交易确认不等同于产品质量保证。
         </p>
         <p class="muted tiny">
           单品状态 {{ item?.status || '—' }} · 二维码 {{ item?.qrStatus || '—' }} · NFC
@@ -281,6 +283,8 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
   /* 公共页限宽 520px，栅格必须按容器宽度自适应，而不是按视口宽度 */
   container-type: inline-size;
 }
+.recall-banner { color: var(--seal); background: var(--seal-tint); border-radius: var(--radius-lg); }
+.recall-banner p { margin-top: 8px; font-size: var(--fs-sm); }
 
 .bar {
   position: sticky;

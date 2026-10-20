@@ -3,6 +3,8 @@ package org.nongchanpin.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 
 import java.util.Collections;
 import org.junit.jupiter.api.Test;
@@ -53,15 +55,17 @@ class PublicTraceQueryServiceTest {
         when(productMapper.findById(3L)).thenReturn(product);
         when(eventMapper.findByItemId(1L)).thenReturn(Collections.emptyList());
         when(qualityMapper.findForTrace(1L, 2L)).thenReturn(Collections.emptyList());
-        when(windowMapper.findRecentActive()).thenReturn(Collections.emptyList());
+        when(windowMapper.findRecentForBatch(2L)).thenReturn(Collections.emptyList());
 
         PublicTraceQueryService service = new PublicTraceQueryService(itemMapper, batchMapper, productMapper,
-                nfcMapper, eventMapper, qualityMapper, windowMapper, txService, new PayloadService(), contractConfig);
+                nfcMapper, eventMapper, qualityMapper, windowMapper, txService, new PayloadService(), contractConfig, mock(PublicChainVerifier.class));
 
         PublicTraceView view = service.getTrace(traceCode);
 
         assertEquals("P001", view.getProduct().getProductCode());
         assertEquals("B001", view.getBatch().getBatchCode());
         assertEquals("0xcontract", view.getChainVerification().getContractAddress());
+        verify(windowMapper).findRecentForBatch(2L);
+        verify(windowMapper, never()).findRecentActive();
     }
 }

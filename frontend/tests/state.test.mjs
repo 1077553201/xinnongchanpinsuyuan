@@ -17,11 +17,12 @@ const { chainHealthBadge } = await loadTypeScript('../src/utils/chainHealth.ts')
 
 function confirmed() {
   return {
+    verificationSource: 'LIVE_CHAIN', eventsComplete: true,
     latestChainStatus: 'CONFIRMED',
     itemPayloadHashMatched: true,
     batchPayloadHashMatched: true,
     records: ['BATCH_REGISTER', 'ITEM_BIND'].map((businessType) => ({
-      businessType, chainStatus: 'CONFIRMED', txHash: '0xtransaction',
+      businessType, verificationSource: 'LIVE_CHAIN', chainStatus: 'CONFIRMED', txHash: '0xtransaction',
       payloadHash: '0xdigest', payloadHashMatched: true,
     })),
   }
@@ -72,11 +73,12 @@ test('缺少交易哈希或摘要时保持未知', () => {
   }
 })
 
-test('完整一致结果只说明保存记录一致，不能声称实时链上核验', () => {
+test('完整一致结果须明确读取链上，缺少来源或事件完整性不能通过', () => {
   const result = traceVerdict(confirmed())
   assert.equal(result.tone, 'ok')
-  assert.equal(result.headline, '摘要记录一致')
-  assert.match(result.detail, /未实时读取/)
+  assert.equal(result.headline, '链上摘要核验通过')
+  assert.equal(traceVerdict({ ...confirmed(), verificationSource: 'UNAVAILABLE' }).tone, 'off')
+  assert.equal(traceVerdict({ ...confirmed(), eventsComplete: false }).tone, 'bad')
 })
 
 test('未知质检结果不得显示合格', () => {

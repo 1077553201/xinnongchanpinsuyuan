@@ -3,6 +3,7 @@ package org.nongchanpin.service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
 import lombok.RequiredArgsConstructor;
 import org.nongchanpin.config.ContractConfig;
 import org.nongchanpin.mapper.IotDataWindowMapper;
@@ -37,6 +38,7 @@ public class PublicTraceQueryService {
     private final ChainTransactionService chainTransactionService;
     private final PayloadService payloadService;
     private final ContractConfig contractConfig;
+    private final PublicChainVerifier publicChainVerifier;
 
     public PublicTraceView getTrace(String traceCode) {
         String traceCodeHash = HashUtils.hashBusinessIdPlainHex(traceCode);
@@ -56,8 +58,17 @@ public class PublicTraceQueryService {
         view.setNfc(toNfc(nfc));
         view.setTimeline(toEvents(events));
         view.setQualityReports(toQualities(qualityReportMapper.findForTrace(item.getId(), item.getBatchId())));
-        view.setEnvironmentSummary(toEnvironment(iotDataWindowMapper.findRecentActive()));
-        view.setChainVerification(verify(product, batch, item, events));
+        view.setEnvironmentSummary(toEnvironment(iotDataWindowMapper.findRecentForBatch(item.getBatchId())));
+        PublicTraceView.ChainVerification verification = verify(product, batch, item, events);
+        Map<String, String> expected = new LinkedHashMap<>();
+        if (batch != null && product != null) expected.put("BATCH_REGISTER", recomputeBatchPayloadHash(product, batch));
+        expected.put("ITEM_BIND", recomputeItemPayloadHash(batch, item));
+        for (TraceEventEntity event : events) expected.put("TRACE_EVENT_APPEND:" + event.getId(), recomputeEventPayloadHash(item, event));
+        if (batch != null && product != null) publicChainVerifier.verify(traceCode, batch, events, verification, expected);
+        else verification.setVerificationSource("UNAVAILABLE");
+        view.setChainVerification(verification);
+        if (Integer.valueOf(3).equals(verification.getChainBatchStatus()) && view.getBatch() != null) view.getBatch().setStatus("RECALL");
+        if (Integer.valueOf(4).equals(verification.getChainItemStatus())) view.getItem().setStatus("RECALL");
         PublicTraceView.AiStatus ai = new PublicTraceView.AiStatus();
         ai.setAvailable(false);
         ai.setProvider("disabled");
@@ -211,6 +222,18 @@ public class PublicTraceQueryService {
         payload.put("traceCodeHash", item.getTraceCodeHash());
         payload.put("batchCode", batch == null ? null : batch.getBatchCode());
         payload.put("traceUrl", item.getTraceUrl());
+        return payloadService.payloadHashWithPrefix(payload);
+    }
+
+    private String recomputeEventPayloadHash(TraceItemEntity item, TraceEventEntity event) {
+        Map<String, Object> payload = payloadService.map();
+        payload.put("traceCodeHash", item.getTraceCodeHash());
+        payload.put("eventType", event.getEventType());
+        payload.put("eventTime", event.getEventTime());
+        payload.put("location", event.getLocation());
+        payload.put("operatorName", event.getOperatorName());
+        Object canonical = payloadService.readJson(event.getPayload());
+        payload.put("payload", canonical instanceof Map ? ((Map<?, ?>) canonical).get("payload") : null);
         return payloadService.payloadHashWithPrefix(payload);
     }
 

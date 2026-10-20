@@ -13,7 +13,7 @@ const unknown: TraceVerdict = {
   detail: '暂未取得完整的交易和摘要记录，无法作出验证结论。',
 }
 
-/** 当前接口只比较数据库中的交易摘要，不提供实时链上核验结果。 */
+/** 只在后端明确完成实时链上读取、必需摘要和事件完整性核对时给出通过结论。 */
 export function traceVerdict(value?: TraceChainVerification): TraceVerdict {
   if (!value) return unknown
   const records = value.records ?? []
@@ -27,10 +27,17 @@ export function traceVerdict(value?: TraceChainVerification): TraceVerdict {
   if (statuses.includes('PENDING')) {
     return { tone: 'wait', headline: '等待上链确认', sealChar: '待', detail: '部分交易仍待确认，请稍后重新查询。' }
   }
+  if (value.verificationSource !== 'LIVE_CHAIN') {
+    return { tone: 'off', headline: '链上核验暂不可用', sealChar: '待', detail: '未完成本次链上摘要读取，请稍后重新查询。保存的交易记录仍可供查看。' }
+  }
+  if (value.eventsComplete === false) {
+    return { tone: 'bad', headline: '流转记录不完整', sealChar: '疑', detail: '业务明细与链上的事件数量不一致，请联系生产方核实。' }
+  }
+  if (value.eventsComplete !== true) return unknown
   const batch = records.find((record) => record.businessType === 'BATCH_REGISTER')
   const item = records.find((record) => record.businessType === 'ITEM_BIND')
   if (!batch || !item || statuses.some((status) => status !== 'CONFIRMED')
-      || records.some((record) => !record.txHash?.trim() || !record.payloadHash?.trim())) return unknown
+      || records.some((record) => record.verificationSource !== 'LIVE_CHAIN' || !record.txHash?.trim() || !record.payloadHash?.trim())) return unknown
   const matches = [value.batchPayloadHashMatched, value.itemPayloadHashMatched,
     ...records.map((record) => record.payloadHashMatched)]
   if (matches.includes(false)) {
@@ -41,8 +48,8 @@ export function traceVerdict(value?: TraceChainVerification): TraceVerdict {
   }
   if (matches.some((matched) => matched !== true)) return unknown
   return {
-    tone: 'ok', headline: '摘要记录一致', sealChar: '录',
-    detail: '批次与单品明细摘要与保存的交易记录一致，交易状态已确认。本次查询未实时读取链上摘要。',
+    tone: 'ok', headline: '链上摘要核验通过', sealChar: '验',
+    detail: '批次、单品和已展示事件的明细摘要与本次读取的链上摘要一致，事件数量一致。此结果不替代产品质量检测。',
   }
 }
 
@@ -50,6 +57,7 @@ export function recordAssessment(record: TraceVerifyRecord): { tone: Tone; label
   if (record.chainStatus === 'FAILED') return { tone: 'bad', label: '上链失败' }
   if (record.chainStatus === 'CHAIN_DISABLED') return { tone: 'off', label: '未上链' }
   if (record.chainStatus === 'PENDING') return { tone: 'wait', label: '待确认' }
+  if (record.verificationSource !== 'LIVE_CHAIN') return { tone: 'off', label: '未实时核验' }
   if (record.chainStatus !== 'CONFIRMED' || !record.txHash?.trim() || !record.payloadHash?.trim()
       || typeof record.payloadHashMatched !== 'boolean') return { tone: 'off', label: '待核对' }
   return record.payloadHashMatched

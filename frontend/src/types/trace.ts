@@ -67,6 +67,8 @@ export interface TraceEnvironment {
 }
 
 export interface TraceVerifyRecord {
+  verificationSource?: string
+  chainPayloadHash?: string
   businessType?: string
   chainStatus?: string
   txHash?: string
@@ -75,6 +77,8 @@ export interface TraceVerifyRecord {
 }
 
 export interface TraceChainVerification {
+  verificationSource?: string
+  eventsComplete?: boolean
   contractAddress?: string
   latestTxHash?: string
   latestChainStatus?: string

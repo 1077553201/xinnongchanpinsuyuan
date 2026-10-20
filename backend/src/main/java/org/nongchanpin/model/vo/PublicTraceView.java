@@ -87,6 +87,10 @@ public class PublicTraceView {
 
     @Data
     public static class ChainVerification {
+        private String verificationSource;
+        private boolean eventsComplete;
+        private Integer chainBatchStatus;
+        private Integer chainItemStatus;
         private String contractAddress;
         private String latestTxHash;
         private String latestChainStatus;
@@ -97,6 +101,8 @@ public class PublicTraceView {
 
     @Data
     public static class Record {
+        private String verificationSource;
+        private String chainPayloadHash;
         private String businessType;
         private String chainStatus;
         private String txHash;
