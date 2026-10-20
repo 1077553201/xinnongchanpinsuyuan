@@ -53,7 +53,11 @@ export function listItems(): Promise<TraceItemEntity[]> {
 }
 
 export function generateItems(body: GenerateItemsRequest): Promise<TraceItemEntity[]> {
-  return post<TraceItemEntity[]>('/items/generate', body)
+  return post<TraceItemEntity[]>('/items/generate', body, 180000)
+}
+
+export function getItem(id: number): Promise<TraceItemEntity> {
+  return get<TraceItemEntity>(`/items/${id}`)
 }
 
 /* ---- 溯源事件 ---- */

@@ -2,12 +2,14 @@ package org.nongchanpin.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -25,6 +27,28 @@ import org.nongchanpin.model.vo.ChainTxResult;
 
 class TraceItemServiceTest {
     @Test
+    void closedBatchAndInvalidCountAreRejectedBeforeAnyWrites() {
+        TraceItemMapper items = mock(TraceItemMapper.class);
+        ProductBatchMapper batches = mock(ProductBatchMapper.class);
+        ChainService chain = mock(ChainService.class);
+        ChainTransactionService transactions = mock(ChainTransactionService.class);
+        TraceItemService service = new TraceItemService(items, batches, chain, transactions,
+                new ChainWriteSupport(transactions), new PayloadService(), new ContractConfig());
+        ProductBatchEntity batch = new ProductBatchEntity();
+        batch.setStatus("CLOSED");
+        when(batches.findById(1L)).thenReturn(batch);
+        GenerateItemsRequest request = new GenerateItemsRequest();
+        request.setBatchId(1L);
+        assertThrows(IllegalArgumentException.class, () -> service.generate(request));
+        batch.setStatus("ACTIVE");
+        request.setCount(null);
+        assertThrows(IllegalArgumentException.class, () -> service.generate(request));
+        request.setCount(101);
+        assertThrows(IllegalArgumentException.class, () -> service.generate(request));
+        verifyNoInteractions(items, chain, transactions);
+    }
+
+    @Test
     void generateCreatesUniqueTraceCodeAndCallsBindItem() {
         TraceItemMapper itemMapper = mock(TraceItemMapper.class);
         ProductBatchMapper batchMapper = mock(ProductBatchMapper.class);
@@ -37,6 +61,7 @@ class TraceItemServiceTest {
         ProductBatchEntity batch = new ProductBatchEntity();
         batch.setId(7L);
         batch.setBatchCode("B001");
+        batch.setStatus("ACTIVE");
         when(batchMapper.findById(7L)).thenReturn(batch);
         when(itemMapper.countByTraceCodeHash(any())).thenReturn(0);
         doAnswer(invocation -> {

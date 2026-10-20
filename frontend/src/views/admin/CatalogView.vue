@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 import GlassPanel from '@/components/GlassPanel.vue'
 import StatusChip from '@/components/StatusChip.vue'
 import ResourceState from '@/components/ResourceState.vue'
@@ -239,7 +240,7 @@ function clearFilters() { search.value = ''; productFilter.value = ''; statusFil
                 <td>{{ batch.productionArea || '地块未记录' }}<p class="muted tiny">种植 {{ formatDate(batch.plantDate) }} · 采收 {{ formatDate(batch.harvestDate) }}</p></td>
                 <td><StatusChip :tone="batch.status === 'RECALL' ? 'bad' : 'off'" :label="batchStatusLabel(batch.status)" compact /></td>
                 <td><StatusChip :status="batch.chainStatus" compact /></td>
-                <td><div class="table-actions"><button class="text-button" type="button" @click="openDetail('batch-detail', batch.id)">详情</button><button class="text-button" type="button" :disabled="!canClose(batch)" @click="openClose(batch, 2)">关闭</button><button class="text-button danger" type="button" :disabled="!canClose(batch)" @click="openClose(batch, 3)">召回</button></div></td>
+                <td><div class="table-actions"><button class="text-button" type="button" @click="openDetail('batch-detail', batch.id)">详情</button><RouterLink class="text-button" :to="{ name: 'admin-items', query: { batchId: batch.id } }">单品码</RouterLink><button class="text-button" type="button" :disabled="!canClose(batch)" @click="openClose(batch, 2)">关闭</button><button class="text-button danger" type="button" :disabled="!canClose(batch)" @click="openClose(batch, 3)">召回</button></div></td>
               </tr></tbody>
             </table>
           </div>

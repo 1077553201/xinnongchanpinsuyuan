@@ -78,6 +78,7 @@ public class TraceEventService {
         command.setOccurredAt(TimeUtils.epochSeconds(request.getEventTime(), ZONE_ID).longValue());
         String chainStatus = chainWriteSupport.submit(tx, () -> chainService.appendTraceEvent(command));
         traceEventMapper.updateChainStatus(event.getId(), chainStatus);
+        event.setChainStatus(chainStatus);
         if (batch != null && "RECALL".equals(event.getEventType())) {
             traceItemMapper.updateStatus(item.getId(), chainStatus, "RECALL");
         }

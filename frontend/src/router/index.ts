@@ -44,7 +44,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'items',
         name: 'admin-items',
-        component: () => import('@/views/admin/StagePlaceholder.vue'),
+        component: () => import('@/views/admin/ItemsView.vue'),
         meta: { title: '单品码与二维码', eyebrow: 'Trace Code' },
       },
       {

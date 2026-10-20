@@ -42,6 +42,12 @@ public class TraceItemService {
         if (batch == null) {
             throw new IllegalArgumentException("batch not found");
         }
+        if (!"ACTIVE".equals(batch.getStatus())) {
+            throw new IllegalArgumentException("only active batches can generate items");
+        }
+        if (request.getCount() == null || request.getCount() < 1 || request.getCount() > 100) {
+            throw new IllegalArgumentException("count must be between 1 and 100");
+        }
         List<TraceItemEntity> items = new ArrayList<>();
         for (int i = 0; i < request.getCount(); i++) {
             items.add(createOne(batch));

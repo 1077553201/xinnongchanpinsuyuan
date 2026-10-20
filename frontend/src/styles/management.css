@@ -1,0 +1,28 @@
+.management { min-width: 0; }
+.management .toolbar, .management .section-head, .management .actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.management .actions { justify-content: flex-start; }
+.management .filters { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin: 20px 0; }
+.management .filters label { display: grid; gap: 6px; flex: 1 1 160px; min-width: 0; font-size: var(--fs-xs); }
+.management .table-scroll { overflow-x: auto; }
+.management .data-table { min-width: 720px; text-align: left; font-size: var(--fs-sm); }
+.management .data-table th { color: var(--slate); font-weight: 500; font-size: var(--fs-xs); padding: 12px; white-space: nowrap; }
+.management .data-table td { border-top: 1px solid var(--glass-hairline); padding: 14px 12px; max-width: 280px; overflow-wrap: anywhere; vertical-align: top; }
+.management .data-table td p { margin-top: 5px; }
+.management .text-button { color: var(--field); border: 0; background: transparent; padding: 5px 0; font-size: var(--fs-sm); }
+.management .text-button:hover { text-decoration: underline; }
+.management .text-button:disabled { color: var(--slate); opacity: .6; cursor: not-allowed; }
+.management .primary { background: var(--field); color: white; }
+.management .primary:hover:not(:disabled) { background: var(--field-soft); }
+.management fieldset { padding: 0; margin: 16px 0; border: 0; min-width: 0; }
+.management .form-field { display: grid; gap: 6px; margin-bottom: 16px; }
+.management .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.management .form-grid .form-field { margin-bottom: 0; }
+.management .full { grid-column: 1 / -1; }
+.management .notice { background: var(--field-tint); padding: 14px 16px; border-radius: 14px; font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.management .notice.bad { background: var(--seal-tint); color: var(--seal); }
+.management .notice.wait { background: var(--grain-tint); }
+.management .detail-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; margin: 16px 0; }
+.management .detail-grid dt { color: var(--slate); font-size: var(--fs-xs); }
+.management .detail-grid dd { margin: 4px 0 0; font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.management textarea { resize: vertical; }
+@media(max-width:560px) { .management .form-grid, .management .detail-grid { grid-template-columns: minmax(0,1fr); } }
