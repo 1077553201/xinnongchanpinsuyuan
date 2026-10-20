@@ -6,6 +6,7 @@ import { chainHealth } from '@/api/chain'
 import ResourceState from '@/components/ResourceState.vue'
 import { useAsyncResource } from '@/composables/useAsyncResource'
 import { chainHealthBadge } from '@/utils/chainHealth'
+import TransactionsPanel from '@/components/TransactionsPanel.vue'
 
 const { data: chain, error, loading, load } = useAsyncResource(chainHealth)
 onMounted(load)
@@ -54,8 +55,11 @@ const badge = computed(() => chainHealthBadge(chain.value))
       </ResourceState>
     </GlassPanel>
 
+    <TransactionsPanel />
+
     <GlassPanel padded="large" class="panel">
-      <h2 class="title display">链上存证口径</h2>
+      <details>
+      <summary class="title display">存证范围说明</summary>
       <p class="lede">
         链上只保存可验证摘要与索引，不保存业务明文。以下字段会以 <span class="mono">bytes32</span> 形式写入
         <span class="mono">AgriTrace</span> 合约，业务明细仍留在 MySQL。
@@ -74,21 +78,9 @@ const badge = computed(() => chainHealthBadge(chain.value))
           <span class="muted">{{ field.desc }}</span>
         </li>
       </ul>
+      </details>
     </GlassPanel>
 
-    <GlassPanel padded="large" class="panel gap">
-      <h2 class="title display">交易列表待补</h2>
-      <p class="lede">
-        后端已把每笔链上动作写入 <span class="mono">chain_transaction</span> 表，但目前
-        <strong>没有查询接口</strong>，所以这一页暂时无法列出交易列表。
-      </p>
-      <p class="lede">
-        要完成「链上交易查看」，需要在后端补一个接口，例如
-        <span class="mono">GET /api/chain/transactions?businessType=&amp;businessId=&amp;limit=</span>，
-        返回 <span class="mono">business_type / business_id / chain_status / tx_hash / block_number /
-        receipt_status / payload_hash / submitted_at / confirmed_at</span>。
-      </p>
-    </GlassPanel>
   </div>
 </template>
 

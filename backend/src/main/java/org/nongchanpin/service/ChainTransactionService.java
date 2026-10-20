@@ -4,6 +4,7 @@ import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.nongchanpin.chain.ChainStatus;
 import org.nongchanpin.mapper.ChainTransactionMapper;
@@ -17,6 +18,20 @@ public class ChainTransactionService {
     private static final ZoneId ZONE_ID = ZoneId.of("Asia/Shanghai");
 
     private final ChainTransactionMapper chainTransactionMapper;
+
+    public List<ChainTransactionEntity> findRecent(String businessType, Long businessId, String chainStatus, Integer limit) {
+        if (businessId != null && businessId < 1) throw new IllegalArgumentException("business id must be positive");
+        if (chainStatus != null && !chainStatus.isBlank()) ChainStatus.valueOf(chainStatus);
+        return chainTransactionMapper.findRecent(businessType == null || businessType.isBlank() ? null : businessType,
+                businessId, chainStatus == null || chainStatus.isBlank() ? null : chainStatus,
+                limit == null || limit < 1 ? 100 : Math.min(500, limit));
+    }
+
+    public ChainTransactionEntity get(Long id) {
+        ChainTransactionEntity tx = chainTransactionMapper.findById(id);
+        if (tx == null) throw new IllegalArgumentException("transaction not found");
+        return tx;
+    }
 
     public ChainTransactionEntity createPending(String businessType, Long businessId, String businessIdHash,
             String contractAddress, String eventName, String payloadHash, String requestHash) {

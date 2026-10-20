@@ -1,5 +1,22 @@
 /** 与后端链层 VO 对齐的类型。 */
 
+export interface ChainTransaction {
+  id: number
+  businessType: string
+  businessId: number
+  chainStatus: string
+  txHash?: string
+  blockNumber?: number
+  receiptStatus?: string
+  contractAddress?: string
+  eventName?: string
+  payloadHash?: string
+  chainOperator?: string
+  errorMessage?: string
+  submittedAt?: string
+  confirmedAt?: string
+}
+
 export interface ChainHealthResult {
   groupId?: string
   peers?: string[]

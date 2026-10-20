@@ -15,7 +15,7 @@ import GlassPanel from '@/components/GlassPanel.vue'
       </div>
 
       <p class="lede">
-        后台需要账号登录后才能录入批次、生成单品码与绑定 NFC 标签。
+        当前为本地研发运行环境，账号登录尚未启用。
       </p>
 
       <div class="fields">
@@ -32,13 +32,12 @@ import GlassPanel from '@/components/GlassPanel.vue'
       <button class="primary" type="button" disabled>登录</button>
 
       <p class="note">
-        后端目前还没有登录鉴权模块（无 JWT / Spring Security），登录页先做占位。
-        接入鉴权后这里会换成真实的账号校验。
+        当前通过开发入口使用后台。账号校验与权限管理将在独立阶段接入，
+        这里暂时不能提交账号或密码。
       </p>
 
       <div class="links">
-        <RouterLink to="/admin" class="link">先进入后台预览</RouterLink>
-        <RouterLink to="/t/DEMO-0001" class="link">查看公众查询页</RouterLink>
+        <RouterLink to="/admin" class="link">进入开发后台</RouterLink>
       </div>
     </GlassPanel>
   </div>

@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
 import org.junit.jupiter.api.Test;
 import org.nongchanpin.chain.ChainStatus;
 import org.nongchanpin.mapper.ChainTransactionMapper;
@@ -37,6 +39,12 @@ class ChainTransactionServiceTest {
     static class FakeChainTransactionMapper implements ChainTransactionMapper {
         private final Map<Long, ChainTransactionEntity> store = new HashMap<>();
         private long nextId = 1L;
+
+        @Override
+        public List<ChainTransactionEntity> findRecent(String type, Long id, String status, int limit) { return new ArrayList<>(store.values()); }
+
+        @Override
+        public ChainTransactionEntity findById(Long id) { return store.get(id); }
 
         @Override
         public int insert(ChainTransactionEntity tx) {

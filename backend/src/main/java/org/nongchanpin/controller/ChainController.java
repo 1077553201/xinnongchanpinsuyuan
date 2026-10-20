@@ -3,6 +3,7 @@ package org.nongchanpin.controller;
 import javax.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.nongchanpin.chain.ChainService;
+import org.nongchanpin.service.ChainTransactionService;
 import org.nongchanpin.model.CommonResponse;
 import org.nongchanpin.model.command.AppendSensorWindowCommand;
 import org.nongchanpin.model.command.AppendTraceEventCommand;
@@ -19,12 +20,24 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping("/api/chain")
 @RequiredArgsConstructor
 public class ChainController {
     private final ChainService chainService;
+    private final ChainTransactionService transactions;
+
+    @GetMapping("/transactions")
+    public CommonResponse transactions(@RequestParam(required = false) String businessType,
+            @RequestParam(required = false) Long businessId, @RequestParam(required = false) String chainStatus,
+            @RequestParam(required = false) Integer limit) {
+        return CommonResponse.ok(transactions.findRecent(businessType, businessId, chainStatus, limit));
+    }
+
+    @GetMapping("/transactions/{id}")
+    public CommonResponse transaction(@PathVariable Long id) { return CommonResponse.ok(transactions.get(id)); }
 
     @GetMapping("/health")
     public CommonResponse health() {

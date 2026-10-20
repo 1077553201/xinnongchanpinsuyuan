@@ -1,5 +1,8 @@
 import { get } from './http'
-import type { ChainBatchView, ChainHealthResult, ChainItemView, ChainSensorWindowView } from '@/types/chain'
+import type { ChainBatchView, ChainHealthResult, ChainItemView, ChainSensorWindowView, ChainTransaction } from '@/types/chain'
+
+export function listTransactions(params?: { businessType?: string; businessId?: number; chainStatus?: string; limit?: number }): Promise<ChainTransaction[]> { return get('/chain/transactions', params) }
+export function getTransaction(id: number): Promise<ChainTransaction> { return get(`/chain/transactions/${id}`) }
 
 export function chainHealth(): Promise<ChainHealthResult> {
   return get<ChainHealthResult>('/chain/health')
