@@ -20,7 +20,7 @@ Run commands from the indicated directory:
 Use four-space Java indentation and two-space Vue/TypeScript/CSS indentation. Java classes and Vue components use PascalCase; methods and variables use camelCase. Follow existing suffixes such as `Controller`, `Service`, `Mapper`, and `Request`. Use Vue Composition API with `<script setup lang="ts">`, single-quoted TypeScript strings, and no statement semicolons. Reuse CSS tokens in `frontend/src/styles/`. No dedicated formatter or linter is configured.
 
 ## Testing Guidelines
-Backend tests use JUnit 5 and Mockito; name classes `*Test.java` and methods after expected behavior. Cover affected hashing, transaction-state, and telemetry behavior. No coverage threshold or frontend test runner is configured. For UI changes, run the frontend build and inspect desktop/mobile layouts; distinguish mock checks from live integration validation.
+Backend tests use JUnit 5 and Mockito; name classes `*Test.java` and methods after expected behavior. Frontend state tests use Node's built-in runner: run `npm test` in `frontend/`, with tests named `tests/*.test.mjs`. No coverage threshold is configured. For UI changes, run the frontend build and inspect desktop/mobile layouts; distinguish mock checks from live integration validation.
 
 ## Commit & Pull Request Guidelines
 Existing commits use type prefixes (`docs:`, `chore:`) with concise Chinese summaries. Continue the `type: summary` pattern. PRs should describe behavior changes, link relevant issues, report validation and configuration requirements, and include screenshots for UI changes.

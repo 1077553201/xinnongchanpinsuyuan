@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onScopeDispose, ref, watch } from 'vue'
 import GlassPanel from '@/components/GlassPanel.vue'
 import MetricBar from '@/components/MetricBar.vue'
 import StatusChip from '@/components/StatusChip.vue'
 import TraceTimeline from '@/components/TraceTimeline.vue'
 import VerifySeal from '@/components/VerifySeal.vue'
 import { fetchTrace } from '@/api/publicTrace'
-import { chainStatusTone, formatDate, formatDateTime, shortHash, type Tone } from '@/types/api'
+import { ApiError, apiErrorMessage } from '@/api/http'
+import { formatDate, shortHash } from '@/types/api'
 import type { PublicTraceView, TraceEnvironment } from '@/types/trace'
+import { qualityAssessment, recordAssessment, traceVerdict } from '@/utils/traceVerdict'
 
 const props = defineProps<{ traceCode: string }>()
 
@@ -15,28 +17,34 @@ const trace = ref<PublicTraceView | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
 const notFound = ref(false)
+const queriedAt = ref('')
+let revision = 0
+onScopeDispose(() => { revision += 1 })
 
 async function load(code: string) {
+  const current = ++revision
   loading.value = true
   error.value = null
   notFound.value = false
   trace.value = null
   try {
-    trace.value = await fetchTrace(code)
+    const result = await fetchTrace(code)
+    if (current !== revision) return
+    trace.value = result
+    queriedAt.value = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })
   } catch (err) {
-    const message = err instanceof Error ? err.message : '查询失败'
-    if (message.toLowerCase().includes('not found')) {
+    if (current !== revision) return
+    if (err instanceof ApiError && err.code === '400' && err.message === 'trace code not found') {
       notFound.value = true
     } else {
-      error.value = message
+      error.value = apiErrorMessage(err)
     }
   } finally {
-    loading.value = false
+    if (current === revision) loading.value = false
   }
 }
 
-onMounted(() => load(props.traceCode))
-watch(() => props.traceCode, (code) => load(code))
+watch(() => props.traceCode, (code) => load(code), { immediate: true })
 
 const product = computed(() => trace.value?.product)
 const batch = computed(() => trace.value?.batch)
@@ -46,28 +54,10 @@ const environments = computed<TraceEnvironment[]>(() => (trace.value?.environmen
 const reports = computed(() => trace.value?.qualityReports ?? [])
 const events = computed(() => trace.value?.timeline ?? [])
 
-/** 结论先行：把链上校验结果压缩成一句可读的判断。 */
-const verdict = computed<{ tone: Tone; headline: string; detail: string }>(() => {
-  const v = verification.value
-  if (!v) {
-    return { tone: 'off', headline: '未取得链上记录', detail: '该单品暂时没有可核对的链上摘要。' }
-  }
-  if (v.latestChainStatus === 'FAILED') {
-    return { tone: 'bad', headline: '上链失败', detail: '存在写入失败的交易，请联系生产方核实。' }
-  }
-  if (v.latestChainStatus === 'PENDING') {
-    return { tone: 'wait', headline: '等待链上确认', detail: '记录已提交，仍在等待区块确认。' }
-  }
-  const matched = v.itemPayloadHashMatched !== false && v.batchPayloadHashMatched !== false
-  if (!matched) {
-    return { tone: 'bad', headline: '哈希不一致', detail: '链下明细与链上摘要不匹配，请谨慎对待。' }
-  }
-  return {
-    tone: 'ok',
-    headline: '链上校验通过',
-    detail: '批次与单品的链下明细重新计算后，与链上摘要一致。',
-  }
-})
+const verdict = computed(() => traceVerdict(verification.value))
+const sealAssessment = computed(() => ({
+  tone: verdict.value.tone, label: verdict.value.headline, char: verdict.value.sealChar,
+}))
 
 const sampledCount = computed(() =>
   environments.value.reduce((total, env) => total + (env.sampleCount ?? 0), 0),
@@ -75,8 +65,9 @@ const sampledCount = computed(() =>
 
 const qualitySummary = computed(() => {
   if (!reports.value.length) return '未上传'
-  const failed = reports.value.some((r) => (r.result ?? '').toUpperCase().includes('FAIL'))
-  return failed ? '存在不合格' : '全部合格'
+  const assessments = reports.value.map((report) => qualityAssessment(report.result))
+  if (assessments.some((result) => result.tone === 'bad')) return '存在不合格'
+  return assessments.every((result) => result.tone === 'ok') ? '报告均合格' : '结果待确认'
 })
 
 const aiAvailable = computed(() => trace.value?.ai?.available === true)
@@ -86,7 +77,11 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
   <div class="trace">
     <header class="bar glass glass-strong">
       <span class="brand">农产品可信溯源</span>
-      <StatusChip :tone="verdict.tone" :label="verdict.headline" compact />
+      <StatusChip
+        :tone="loading ? 'wait' : error ? 'bad' : notFound ? 'off' : verdict.tone"
+        :label="loading ? '查询中' : error ? '查询失败' : notFound ? '未找到记录' : verdict.headline"
+        compact
+      />
     </header>
 
     <!-- 载入 -->
@@ -132,7 +127,7 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
               <span v-if="product?.variety">{{ product.variety }}</span>
             </p>
           </div>
-          <VerifySeal :status="verification?.latestChainStatus" :size="104" />
+          <VerifySeal :assessment="sealAssessment" label="农产品可信溯源 · 记录核对" :size="104" />
         </div>
 
         <ul class="facts">
@@ -149,7 +144,7 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
             <span class="fact-value">{{ qualitySummary }}</span>
           </li>
           <li>
-            <span class="fact-label">环境采样</span>
+            <span class="fact-label">近期环境采样</span>
             <span class="fact-value mono">{{ sampledCount || '—' }}</span>
           </li>
         </ul>
@@ -174,12 +169,13 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
             </dd>
           </div>
         </dl>
+        <button class="action-button" type="button" @click="load(traceCode)">重新查询</button>
       </GlassPanel>
 
       <GlassPanel padded="large" class="block">
         <header class="block-head">
-          <h2 class="block-title display">生长环境</h2>
-          <span class="muted tiny">来自网关与田间巡检设备</span>
+          <h2 class="block-title display">近期环境记录</h2>
+          <span class="muted tiny">批次归属尚未核实</span>
         </header>
         <div v-if="environments.length" class="metrics">
           <MetricBar
@@ -193,7 +189,8 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
             :chain-status="env.chainStatus"
           />
         </div>
-        <p v-else class="muted empty">生产阶段暂无可用的环境采样。</p>
+        <p class="muted tiny">以下为系统近期采样，尚未确认与当前批次的关联。</p>
+        <p v-if="!environments.length" class="muted empty">暂无可用的环境采样。</p>
       </GlassPanel>
 
       <GlassPanel padded="large" class="block">
@@ -201,7 +198,7 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
           <h2 class="block-title display">农事历</h2>
           <span class="muted tiny">{{ events.length }} 条记录</span>
         </header>
-        <p class="split-legend muted tiny">每条记录：左侧链下业务明细，右侧链上证据</p>
+        <p class="split-legend muted tiny">每条记录展示业务明细、保存的摘要及交易状态。</p>
         <TraceTimeline :events="events" />
       </GlassPanel>
 
@@ -218,8 +215,7 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
               </p>
             </div>
             <StatusChip
-              :tone="(report.result || '').toUpperCase().includes('FAIL') ? 'bad' : 'ok'"
-              :label="report.result || '未知'"
+              v-bind="qualityAssessment(report.result)"
               compact
             />
           </li>
@@ -249,8 +245,8 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
 
       <footer class="foot">
         <p class="muted tiny">
-          本页事实来源：FISCO BCOS 链上摘要 + 链下业务明细。未被链上记录的字段属于链下数据，
-          不等同于链上存证。
+          本页展示业务明细与保存的交易记录。摘要一致仅表示与保存记录相符，
+          本次查询未实时读取链上摘要。
         </p>
         <p class="muted tiny">
           单品状态 {{ item?.status || '—' }} · 二维码 {{ item?.qrStatus || '—' }} · NFC
@@ -263,10 +259,10 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
             class="record"
           >
             {{ record.businessType }}
-            <StatusChip :tone="chainStatusTone(record.chainStatus)" :label="record.payloadHashMatched ? '一致' : '需核对'" compact />
+            <StatusChip v-bind="recordAssessment(record)" compact />
           </span>
         </p>
-        <p class="muted tiny">生成时间 {{ formatDateTime(new Date().toISOString()) }}</p>
+        <p class="muted tiny">查询时间 {{ queriedAt }}（北京时间）</p>
       </footer>
     </template>
   </div>

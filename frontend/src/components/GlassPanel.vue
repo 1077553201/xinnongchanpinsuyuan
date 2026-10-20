@@ -5,13 +5,13 @@ import { computed } from 'vue'
  * 玻璃面板：整个界面的承载基元。
  * glow 用于柔光强调，按约定全场只保留一处高强度柔光。
  */
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   strong?: boolean
   quiet?: boolean
   glow?: 'field' | 'warm' | 'seal'
   interactive?: boolean
   padded?: 'tight' | 'normal' | 'large' | false
-}>()
+}>(), { padded: 'normal' })
 
 const classes = computed(() => [
   'glass',

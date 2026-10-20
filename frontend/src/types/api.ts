@@ -13,7 +13,7 @@ export type ChainStatus = 'PENDING' | 'CONFIRMED' | 'FAILED' | 'CHAIN_DISABLED'
 export type Tone = 'ok' | 'wait' | 'bad' | 'off'
 
 export const CHAIN_STATUS_LABEL: Record<string, string> = {
-  CONFIRMED: '链上已验证',
+  CONFIRMED: '上链已确认',
   PENDING: '等待上链',
   FAILED: '上链失败',
   CHAIN_DISABLED: '未上链',
@@ -64,8 +64,8 @@ export function eventTypeLabel(type?: string): string {
 }
 
 export function chainStatusLabel(status?: string): string {
-  if (!status) return '未上链'
-  return CHAIN_STATUS_LABEL[status] ?? status
+  if (!status) return '状态未知'
+  return CHAIN_STATUS_LABEL[status] ?? '状态未知'
 }
 
 export function chainStatusTone(status?: string): Tone {

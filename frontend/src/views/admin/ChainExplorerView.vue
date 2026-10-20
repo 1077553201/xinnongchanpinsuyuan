@@ -1,25 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import GlassPanel from '@/components/GlassPanel.vue'
 import StatusChip from '@/components/StatusChip.vue'
 import { chainHealth } from '@/api/chain'
-import type { ChainHealthResult } from '@/types/chain'
+import ResourceState from '@/components/ResourceState.vue'
+import { useAsyncResource } from '@/composables/useAsyncResource'
+import { chainHealthBadge } from '@/utils/chainHealth'
 
-const chain = ref<ChainHealthResult | null>(null)
-const error = ref<string | null>(null)
-const loading = ref(true)
-
-onMounted(async () => {
-  try {
-    chain.value = await chainHealth()
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : '链状态获取失败'
-  } finally {
-    loading.value = false
-  }
-})
-
-const statusTone = computed(() => (chain.value?.chainEnabled ? 'ok' : 'off'))
+const { data: chain, error, loading, load } = useAsyncResource(chainHealth)
+onMounted(load)
+const badge = computed(() => chainHealthBadge(chain.value))
 </script>
 
 <template>
@@ -27,9 +17,10 @@ const statusTone = computed(() => (chain.value?.chainEnabled ? 'ok' : 'off'))
     <GlassPanel padded="large" class="panel">
       <header class="head">
         <h2 class="title display">FISCO BCOS 连接状态</h2>
-        <StatusChip :tone="statusTone" :label="chain?.status || (loading ? '读取中' : '未知')" />
+        <StatusChip :tone="loading ? 'wait' : error ? 'bad' : badge.tone" :label="loading ? '读取中' : error ? '读取失败' : badge.label" />
       </header>
 
+      <ResourceState :loading="loading" :error="error" @retry="load">
       <dl class="grid">
         <div class="cell">
           <dt>合约地址</dt>
@@ -48,7 +39,7 @@ const statusTone = computed(() => (chain.value?.chainEnabled ? 'ok' : 'off'))
           <dd class="mono">{{ chain?.latestBlock ?? '—' }}</dd>
         </div>
         <div class="cell">
-          <dt>出块账户</dt>
+          <dt>调用账户</dt>
           <dd class="mono">{{ chain?.accountAddress || '—' }}</dd>
         </div>
         <div class="cell">
@@ -57,8 +48,10 @@ const statusTone = computed(() => (chain.value?.chainEnabled ? 'ok' : 'off'))
         </div>
       </dl>
 
-      <p v-if="error" class="error">{{ error }}</p>
-      <p v-else-if="chain?.errorMessage" class="error">{{ chain.errorMessage }}</p>
+      <p v-if="badge.tone === 'bad'" class="error">节点连接异常，请稍后刷新重试。</p>
+      <p v-else-if="chain?.chainEnabled === false" class="lede">写链配置尚未就绪。</p>
+      <button class="action-button" type="button" @click="load">刷新状态</button>
+      </ResourceState>
     </GlassPanel>
 
     <GlassPanel padded="large" class="panel">

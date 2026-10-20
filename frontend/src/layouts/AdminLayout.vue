@@ -1,8 +1,21 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { RouterLink, RouterView, useRoute } from 'vue-router'
+import { computed, ref } from 'vue'
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
+const router = useRouter()
+const traceCode = ref('')
+const traceError = ref('')
+
+function openTrace() {
+  const code = traceCode.value.trim()
+  if (!code) {
+    traceError.value = '请填写溯源编号。'
+    return
+  }
+  traceError.value = ''
+  void router.push({ name: 'public-trace', params: { traceCode: code } })
+}
 
 const navItems = [
   { to: '/admin', label: '总览' },
@@ -46,11 +59,16 @@ function isActive(to: string): boolean {
       </nav>
 
       <div class="sidebar-foot">
-        <RouterLink to="/t/DEMO-0001" class="public-link">
-          查看公众查询页
-          <span aria-hidden="true">↗</span>
-        </RouterLink>
-        <p class="muted tiny">设计稿阶段 · 数据接口已就绪</p>
+        <form class="trace-search" @submit.prevent="openTrace">
+          <label class="field-label" for="trace-code">查询单品记录</label>
+          <input
+            id="trace-code" v-model="traceCode" class="field-input" placeholder="输入溯源编号"
+            maxlength="256" :aria-invalid="!!traceError" :aria-describedby="traceError ? 'trace-code-error' : undefined"
+            @input="traceError = ''"
+          >
+          <p v-if="traceError" id="trace-code-error" class="field-error" role="alert">{{ traceError }}</p>
+          <button class="action-button" type="submit">打开公众查询页 ↗</button>
+        </form>
       </div>
     </aside>
 
@@ -71,6 +89,8 @@ function isActive(to: string): boolean {
 </template>
 
 <style scoped>
+.trace-search { display: grid; gap: var(--space-2); }
+
 .console {
   display: grid;
   grid-template-columns: 236px minmax(0, 1fr);

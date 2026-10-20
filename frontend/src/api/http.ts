@@ -21,10 +21,21 @@ export class ApiError extends Error {
   }
 }
 
+/** 页面只展示可行动的提示，避免把数据库或 SDK 内部异常直接展示给用户。 */
+export function apiErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') return '读取超时，请稍后重试。'
+    if (error.code === 'network' || error.code === 'ERR_NETWORK') return '暂时无法连接服务，请检查网络后重试。'
+    if (error.code === '401' || error.code === '403') return '当前无权读取这些记录，请联系管理员。'
+    if (error.code === '404') return '查询入口暂不可用，请稍后重试。'
+  }
+  return '暂时无法读取记录，请稍后重试。'
+}
+
 function toApiError(error: unknown): ApiError {
   if (axios.isAxiosError(error)) {
     const payload = error.response?.data as CommonResponse | undefined
-    const code = payload?.code ?? String(error.response?.status ?? 'network')
+    const code = payload?.code ?? String(error.response?.status ?? error.code ?? 'network')
     const message = payload?.message || error.message || '网络异常，请稍后重试'
     return new ApiError(code, message)
   }

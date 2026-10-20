@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useId } from 'vue'
 import { chainStatusLabel, chainStatusTone, type Tone } from '@/types/api'
 
 /**
- * 链上校验印章 —— 全局唯一的记忆点。
- * 用检验章的中文篆印语言承载「链上已验证」这一核心事实：
+ * 存证状态印章。确认交易与实时核验是不同事实；
+ * 公众页传入 assessment，让印章与页面的核对结论一致。
  * 边款环绕系统名，中心一字表明状态，四态以字、色、环线三重区分。
  */
-
-let sealCounter = 0
 
 const props = withDefaults(
   defineProps<{
@@ -17,6 +15,7 @@ const props = withDefaults(
     variant?: 'seal' | 'mark'
     label?: string
     showCaption?: boolean
+    assessment?: { tone: Tone; label: string; char: string }
   }>(),
   {
     size: 112,
@@ -27,23 +26,25 @@ const props = withDefaults(
 )
 
 const SEAL_STATES: Record<string, { char: string; tone: Tone; ring: 'solid' | 'dashed' | 'notch' }> = {
-  CONFIRMED: { char: '验', tone: 'ok', ring: 'solid' },
+  CONFIRMED: { char: '存', tone: 'ok', ring: 'solid' },
   PENDING: { char: '待', tone: 'wait', ring: 'dashed' },
   FAILED: { char: '误', tone: 'bad', ring: 'notch' },
   CHAIN_DISABLED: { char: '未', tone: 'off', ring: 'dashed' },
 }
 
-const arcId = `verify-seal-arc-${++sealCounter}`
+const arcId = `verify-seal-${useId()}`
 
-const state = computed(() => SEAL_STATES[props.status ?? ''] ?? SEAL_STATES.CHAIN_DISABLED)
-const tone = computed<Tone>(() => (props.status ? chainStatusTone(props.status) : state.value.tone))
-const caption = computed(() => (props.status ? chainStatusLabel(props.status) : '未上链'))
+const state = computed(() => props.assessment
+  ? { char: props.assessment.char, ring: props.assessment.tone === 'ok' ? 'solid' : props.assessment.tone === 'bad' ? 'notch' : 'dashed' }
+  : SEAL_STATES[props.status ?? ''] ?? { char: '待', ring: 'dashed' })
+const tone = computed<Tone>(() => props.assessment?.tone ?? chainStatusTone(props.status))
+const caption = computed(() => props.assessment?.label ?? chainStatusLabel(props.status))
 </script>
 
 <template>
   <figure class="seal" :class="[`tone-${tone}`, `variant-${variant}`]">
     <svg :width="size" :height="size" viewBox="0 0 120 120" role="img"
-      :aria-label="`链上校验印章：${caption}`">
+      :aria-label="`存证状态：${caption}`">
       <defs>
         <path :id="arcId" d="M60,13 a47,47 0 1,1 0,94 a47,47 0 1,1 0,-94" fill="none" />
       </defs>

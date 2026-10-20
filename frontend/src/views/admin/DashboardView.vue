@@ -1,71 +1,59 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import GlassPanel from '@/components/GlassPanel.vue'
 import StatusChip from '@/components/StatusChip.vue'
+import ResourceState from '@/components/ResourceState.vue'
+import { useAsyncResource } from '@/composables/useAsyncResource'
+import { chainHealthBadge } from '@/utils/chainHealth'
 import { chainHealth } from '@/api/chain'
 import { listBatches, listItems, listProducts } from '@/api/catalog'
 import { listAlerts } from '@/api/iot'
-import { alertTypeLabel, type IotAlertEntity } from '@/types/iot'
+import { alertTypeLabel } from '@/types/iot'
 import { formatDateTime, formatNumber, metricMeta, shortHash } from '@/types/api'
-import type { ChainHealthResult } from '@/types/chain'
+const products = useAsyncResource(listProducts)
+const batches = useAsyncResource(listBatches)
+const items = useAsyncResource(listItems)
+const alerts = useAsyncResource(() => listAlerts({ limit: 6 }))
+const health = useAsyncResource(chainHealth)
+const chain = health.data
+const badge = computed(() => chainHealthBadge(chain.value))
+const resources = [products, batches, items, alerts, health]
+const loading = computed(() => resources.some((resource) => resource.loading.value))
+const hasErrors = computed(() => resources.some((resource) => resource.error.value))
+const cards = [
+  { label: '产品', resource: products, to: '/admin/products', hint: '当前产品记录' },
+  { label: '批次', resource: batches, to: '/admin/products', hint: '当前批次记录' },
+  { label: '单品码', resource: items, to: '/admin/items', hint: '当前单品记录' },
+  { label: '最近告警', resource: alerts, to: '/admin/iot', hint: '最近记录，最多 6 条，含已处理' },
+]
 
-const products = ref<number | null>(null)
-const batches = ref<number | null>(null)
-const items = ref<number | null>(null)
-const alerts = ref<IotAlertEntity[]>([])
-const chain = ref<ChainHealthResult | null>(null)
-const loading = ref(true)
-
-onMounted(async () => {
-  const [p, b, i, a, h] = await Promise.allSettled([
-    listProducts(),
-    listBatches(),
-    listItems(),
-    listAlerts({ limit: 6 }),
-    chainHealth(),
-  ])
-
-  if (p.status === 'fulfilled') products.value = p.value.length
-  if (b.status === 'fulfilled') batches.value = b.value.length
-  if (i.status === 'fulfilled') items.value = i.value.length
-  if (a.status === 'fulfilled') alerts.value = a.value
-  if (h.status === 'fulfilled') chain.value = h.value
-
-  loading.value = false
-})
-
-function metric(value: number | null): string {
-  if (loading.value) return '···'
-  return value === null ? '—' : String(value)
+async function refresh() {
+  await Promise.all(resources.map((resource) => resource.load()))
 }
+onMounted(refresh)
 </script>
 
 <template>
   <div class="dash">
+    <div class="row-between wrap">
+      <p class="muted tiny" role="status">
+        {{ loading ? '正在读取最新记录…' : hasErrors ? '部分记录读取失败，可单独重试。' : '当前记录已更新。' }}
+      </p>
+      <button class="action-button" type="button" :disabled="loading" @click="refresh">刷新总览</button>
+    </div>
     <section class="tiles">
-      <GlassPanel class="tile" interactive>
-        <p class="eyebrow">产品</p>
-        <p class="num">{{ metric(products) }}</p>
-        <RouterLink to="/admin/products" class="tile-link">管理 →</RouterLink>
-      </GlassPanel>
-
-      <GlassPanel class="tile" interactive>
-        <p class="eyebrow">批次</p>
-        <p class="num">{{ metric(batches) }}</p>
-        <RouterLink to="/admin/products" class="tile-link">管理 →</RouterLink>
-      </GlassPanel>
-
-      <GlassPanel class="tile" interactive>
-        <p class="eyebrow">单品码</p>
-        <p class="num">{{ metric(items) }}</p>
-        <RouterLink to="/admin/items" class="tile-link">管理 →</RouterLink>
-      </GlassPanel>
-
-      <GlassPanel class="tile" interactive>
-        <p class="eyebrow">待处理告警</p>
-        <p class="num" :class="{ alarm: alerts.length > 0 }">{{ alerts.length }}</p>
-        <RouterLink to="/admin/iot" class="tile-link">查看 →</RouterLink>
+      <GlassPanel v-for="card in cards" :key="card.label" class="tile">
+        <p class="eyebrow">{{ card.label }}</p>
+        <ResourceState
+          :loading="card.resource.loading.value"
+          :error="card.resource.error.value"
+          @retry="card.resource.load"
+        >
+          <p class="num">{{ card.resource.data.value?.length ?? '—' }}</p>
+        </ResourceState>
+        <p class="muted tiny">{{ card.hint }}</p>
+        <RouterLink :to="card.to" class="tile-link">查看 →</RouterLink>
       </GlassPanel>
     </section>
 
@@ -74,11 +62,12 @@ function metric(value: number | null): string {
         <header class="panel-head">
           <h2 class="panel-title display">链上节点</h2>
           <StatusChip
-            :tone="chain?.chainEnabled ? 'ok' : 'off'"
-            :label="chain?.chainEnabled ? '连接正常' : '未连接'"
+            :tone="health.loading.value ? 'wait' : health.error.value ? 'bad' : badge.tone"
+            :label="health.loading.value ? '读取中' : health.error.value ? '读取失败' : badge.label"
           />
         </header>
 
+        <ResourceState :loading="health.loading.value" :error="health.error.value" @retry="health.load">
         <dl class="facts">
           <div class="fact">
             <dt>合约地址</dt>
@@ -99,7 +88,7 @@ function metric(value: number | null): string {
             <dd>{{ chain?.writerStatus === true ? '已授权' : chain?.writerStatus === false ? '未授权' : '—' }}</dd>
           </div>
           <div class="fact">
-            <dt>出块账户</dt>
+            <dt>调用账户</dt>
             <dd class="mono" :title="chain?.accountAddress || ''">
               {{ shortHash(chain?.accountAddress, 10, 6) }}
             </dd>
@@ -110,7 +99,9 @@ function metric(value: number | null): string {
           </div>
         </dl>
 
-        <p v-if="chain?.errorMessage" class="warn">{{ chain.errorMessage }}</p>
+        <p v-if="badge.tone === 'bad'" class="warn">暂时无法确认节点连接，请稍后刷新。</p>
+        <p v-else-if="chain?.chainEnabled === false" class="muted tiny">节点状态已读取，写链配置尚未就绪。</p>
+        </ResourceState>
       </GlassPanel>
 
       <GlassPanel padded="large" class="panel">
@@ -119,8 +110,15 @@ function metric(value: number | null): string {
           <RouterLink to="/admin/iot" class="panel-link">全部 →</RouterLink>
         </header>
 
-        <ul v-if="alerts.length" class="alerts">
-          <li v-for="alert in alerts" :key="alert.id" class="alert">
+        <ResourceState
+          :loading="alerts.loading.value"
+          :error="alerts.error.value"
+          :empty="!alerts.data.value?.length"
+          empty-text="暂无告警记录。"
+          @retry="alerts.load"
+        >
+        <ul class="alerts">
+          <li v-for="alert in alerts.data.value" :key="alert.id" class="alert">
             <StatusChip tone="bad" :label="alertTypeLabel(alert.alertType)" compact />
             <div class="alert-body">
               <p class="alert-line">
@@ -128,12 +126,11 @@ function metric(value: number | null): string {
                 <span class="muted">{{ metricMeta(alert.metric).unit }}</span>
               </p>
               <p class="muted tiny">{{ formatDateTime(alert.occurredAt) }}</p>
+              <p class="muted tiny">{{ alert.status === 'OPEN' ? '待处理' : alert.status === 'RESOLVED' || alert.status === 'CLOSED' ? '已处理' : '处理状态未知' }}</p>
             </div>
           </li>
         </ul>
-        <p v-else class="muted empty">
-          {{ loading ? '加载中…' : '没有未处理的告警。' }}
-        </p>
+        </ResourceState>
       </GlassPanel>
     </section>
   </div>
