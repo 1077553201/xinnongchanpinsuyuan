@@ -1,4 +1,6 @@
 import { get, post } from './http'
+
+export function iotStatus(): Promise<{ mqttEnabled: boolean; mqttConnected: boolean }> { return get('/iot/status') }
 import type {
   AggregateWindowRequest,
   IotAlertEntity,

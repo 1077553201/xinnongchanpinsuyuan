@@ -14,6 +14,13 @@ async function loadTypeScript(path) {
 
 const { traceVerdict, recordAssessment, qualityAssessment } = await loadTypeScript('../src/utils/traceVerdict.ts')
 const { chainHealthBadge } = await loadTypeScript('../src/utils/chainHealth.ts')
+const { nfcStatusLabel } = await loadTypeScript('../src/types/api.ts')
+
+test('NFC 绑定与停用同时显示清晰业务标签，保留未知状态边界', () => {
+  assert.equal(nfcStatusLabel('BOUND:CONFIRMED'), '已绑定 NFC 标签')
+  assert.equal(nfcStatusLabel('DISABLED:CONFIRMED'), 'NFC 标签已停用')
+  assert.equal(nfcStatusLabel(undefined), 'NFC 状态待确认')
+})
 
 function confirmed() {
   return {

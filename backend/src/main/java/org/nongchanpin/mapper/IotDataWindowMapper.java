@@ -14,7 +14,11 @@ public interface IotDataWindowMapper {
     @Select("SELECT * FROM iot_data_window WHERE status = 'ACTIVE' ORDER BY window_end DESC LIMIT 20")
     List<IotDataWindowEntity> findRecentActive();
 
-    @Select("SELECT * FROM iot_data_window WHERE batch_id = #{batchId} AND status = 'ACTIVE' ORDER BY window_end DESC LIMIT 20")
+    @Select("SELECT w.* FROM iot_data_window w WHERE w.batch_id = #{batchId} AND w.status = 'ACTIVE' "
+            + "AND NOT EXISTS (SELECT 1 FROM iot_data_window newer WHERE newer.batch_id = w.batch_id "
+            + "AND newer.device_code = w.device_code AND newer.metric = w.metric AND newer.window_start = w.window_start "
+            + "AND newer.window_end = w.window_end AND newer.status = 'ACTIVE' AND newer.id > w.id) "
+            + "ORDER BY w.window_end DESC LIMIT 20")
     List<IotDataWindowEntity> findRecentForBatch(@Param("batchId") Long batchId);
 
     @Insert("INSERT INTO iot_data_window (farm_id, batch_id, gateway_code, device_code, metric, window_start, "

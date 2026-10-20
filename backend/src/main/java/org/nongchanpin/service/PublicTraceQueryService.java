@@ -48,7 +48,7 @@ public class PublicTraceQueryService {
         }
         ProductBatchEntity batch = batchMapper.findById(item.getBatchId());
         ProductEntity product = batch == null ? null : productMapper.findById(batch.getProductId());
-        NfcTagEntity nfc = nfcTagMapper.findActiveByItemId(item.getId());
+        NfcTagEntity nfc = nfcTagMapper.findLatestByItemId(item.getId());
         List<TraceEventEntity> events = traceEventMapper.findByItemId(item.getId());
 
         PublicTraceView view = new PublicTraceView();

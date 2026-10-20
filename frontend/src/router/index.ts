@@ -50,13 +50,13 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'iot',
         name: 'admin-iot',
-        component: () => import('@/views/admin/StagePlaceholder.vue'),
+        component: () => import('@/views/admin/IotView.vue'),
         meta: { title: '传感器监控', eyebrow: 'IoT Monitor' },
       },
       {
         path: 'nfc',
         name: 'admin-nfc',
-        component: () => import('@/views/admin/StagePlaceholder.vue'),
+        component: () => import('@/views/admin/NfcView.vue'),
         meta: { title: 'NFC 绑定', eyebrow: 'NFC Binding' },
       },
       {
@@ -68,7 +68,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'ai',
         name: 'admin-ai',
-        component: () => import('@/views/admin/StagePlaceholder.vue'),
+        component: () => import('@/views/admin/AiView.vue'),
         meta: { title: '农场 AI 助手', eyebrow: 'AI Assistant' },
       },
     ],

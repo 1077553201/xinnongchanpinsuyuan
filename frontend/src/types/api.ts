@@ -73,6 +73,13 @@ export function chainStatusTone(status?: string): Tone {
   return CHAIN_STATUS_TONE[status] ?? 'off'
 }
 
+export function nfcStatusLabel(status?: string): string {
+  if (status?.startsWith('DISABLED')) return 'NFC 标签已停用'
+  if (status?.startsWith('BOUND')) return '已绑定 NFC 标签'
+  if (status === 'UNBOUND') return '未绑定 NFC 标签'
+  return 'NFC 状态待确认'
+}
+
 /** 哈希截断展示：保留头尾，中间省略。 */
 export function shortHash(value?: string | null, head = 10, tail = 6): string {
   if (!value) return '—'

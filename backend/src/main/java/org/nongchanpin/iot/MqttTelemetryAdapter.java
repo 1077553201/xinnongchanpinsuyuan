@@ -30,6 +30,8 @@ public class MqttTelemetryAdapter {
 
     private MqttClient client;
 
+    public boolean isConnected() { return client != null && client.isConnected(); }
+
     @PostConstruct
     public void start() {
         try {

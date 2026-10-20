@@ -8,6 +8,7 @@ import org.nongchanpin.model.dto.DisableNfcRequest;
 import org.nongchanpin.service.NfcService;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,6 +18,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class NfcController {
     private final NfcService nfcService;
+
+    @GetMapping
+    public CommonResponse list() { return CommonResponse.ok(nfcService.findAll()); }
+
+    @GetMapping("/{id}")
+    public CommonResponse get(@PathVariable Long id) { return CommonResponse.ok(nfcService.get(id)); }
 
     @PostMapping("/bind")
     public CommonResponse bind(@Valid @RequestBody BindNfcRequest request) {

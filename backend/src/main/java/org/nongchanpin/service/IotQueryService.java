@@ -23,10 +23,8 @@ public class IotQueryService {
 
     public List<IotSensorReadingEntity> listReadings(String deviceCode, String metric, Integer limit) {
         int size = normalizeLimit(limit);
-        if (StringUtils.hasText(deviceCode) && StringUtils.hasText(metric)) {
-            return readingMapper.findRecent(deviceCode, metric, size);
-        }
-        return readingMapper.findLatest(size);
+        return readingMapper.findFiltered(StringUtils.hasText(deviceCode) ? deviceCode : null,
+                StringUtils.hasText(metric) ? metric : null, size);
     }
 
     public List<IotDataWindowEntity> listWindows(String deviceCode, Integer limit) {

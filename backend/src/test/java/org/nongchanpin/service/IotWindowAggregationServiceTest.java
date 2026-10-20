@@ -1,6 +1,7 @@
 package org.nongchanpin.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -8,6 +9,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -34,6 +36,31 @@ class IotWindowAggregationServiceTest {
     private final ChainService chainService = mock(ChainService.class);
     private final ChainTransactionService txService = mock(ChainTransactionService.class);
     private final IotProperties iotProperties = new IotProperties();
+
+    @Test
+    void manualAggregationRejectsMixedBatchesBeforeAnchoring() {
+        LocalDateTime start = LocalDateTime.of(2026, 10, 20, 10, 0);
+        when(readingMapper.findInWindow("DEV1", "temperature", start, start.plusMinutes(5))).thenReturn(List.of(
+                reading("20", start.plusMinutes(1), 7L), reading("80", start.plusMinutes(2), 8L)));
+        assertThrows(IllegalArgumentException.class, () -> service().aggregate("DEV1", "temperature", 1L, "GW1", start, start.plusMinutes(5)));
+        verifyNoInteractions(windowMapper, chainService, txService);
+    }
+
+    @Test
+    void automaticWindowNeverMixesReadingsFromAnotherBatch() {
+        LocalDateTime start = LocalDateTime.of(2026, 10, 20, 10, 0);
+        IotSensorReadingEntity current = reading("20", start.plusMinutes(1), 7L);
+        when(readingMapper.findInWindow("DEV1", "temperature", start, start.plusMinutes(5))).thenReturn(List.of(current,
+                reading("80", start.plusMinutes(2), 8L)));
+        IotDataWindowEntity[] saved = new IotDataWindowEntity[1];
+        when(windowMapper.findByDataHash(any())).thenAnswer(invocation -> saved[0]);
+        doAnswer(invocation -> { saved[0] = invocation.getArgument(0); saved[0].setId(1L); return 1; }).when(windowMapper).insert(any());
+        // 未配置批次链记录时可降级，但窗口统计仍必须隔离。
+        IotDataWindowEntity result = service().aggregateForReading(current);
+        assertEquals(7L, result.getBatchId());
+        assertEquals(1, result.getSampleCount());
+        assertEquals(new BigDecimal("20.000000"), result.getAvgValue());
+    }
 
     @Test
     void aggregateComputesStatsAndAnchorsWhenBatchBound() {

@@ -2,6 +2,7 @@ package org.nongchanpin.service;
 
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.nongchanpin.chain.ChainService;
 import org.nongchanpin.config.ContractConfig;
@@ -30,11 +31,32 @@ public class NfcService {
     private final PayloadService payloadService;
     private final ContractConfig contractConfig;
 
+    public List<NfcTagEntity> findAll() {
+        List<NfcTagEntity> tags = nfcTagMapper.findRecent();
+        for (NfcTagEntity tag : tags) fillChainStatus(tag);
+        return tags;
+    }
+
+    public NfcTagEntity get(Long id) {
+        NfcTagEntity tag = nfcTagMapper.findById(id);
+        if (tag == null) throw new IllegalArgumentException("nfc tag not found");
+        fillChainStatus(tag);
+        return tag;
+    }
+
+    private void fillChainStatus(NfcTagEntity tag) {
+        ChainTransactionEntity tx = chainTransactionService.findLatestByBusiness("ACTIVE".equals(tag.getStatus()) ? "NFC_BIND" : "NFC_DISABLE", tag.getId());
+        if (tx != null) tag.setChainStatus(tx.getChainStatus());
+    }
+
     @Transactional
     public NfcTagEntity bind(BindNfcRequest request) {
         TraceItemEntity item = traceItemMapper.findById(request.getItemId());
         if (item == null) {
             throw new IllegalArgumentException("item not found");
+        }
+        if (!"ACTIVE".equals(item.getStatus()) || nfcTagMapper.findLatestByItemId(item.getId()) != null) {
+            throw new IllegalArgumentException("item is not active or already has an NFC binding; replacement is not supported");
         }
         String uidHash = HashUtils.hashBusinessIdPlainHex(request.getNfcUid());
         if (nfcTagMapper.findByUidHash(uidHash) != null) {
@@ -65,7 +87,7 @@ public class NfcService {
         command.setPayload(payload);
         String chainStatus = chainWriteSupport.submit(tx, () -> chainService.bindNfcTag(command));
         traceItemMapper.updateNfcStatus(item.getId(), "BOUND:" + chainStatus);
-        return nfcTagMapper.findById(tag.getId());
+        return get(tag.getId());
     }
 
     @Transactional
@@ -74,6 +96,7 @@ public class NfcService {
         if (tag == null) {
             throw new IllegalArgumentException("nfc tag not found");
         }
+        if (!"ACTIVE".equals(tag.getStatus())) throw new IllegalArgumentException("nfc tag is already disabled");
         Map<String, Object> reason = payloadService.map();
         reason.put("nfcUidHash", tag.getUidHash());
         reason.put("reason", request.getReasonPayload());
@@ -88,7 +111,8 @@ public class NfcService {
         command.setReasonPayload(reason);
         String chainStatus = chainWriteSupport.submit(tx, () -> chainService.updateNfcStatus(command));
         nfcTagMapper.updateStatus(tag.getId(), "DISABLED:" + chainStatus, "DISABLED");
-        return nfcTagMapper.findById(tag.getId());
+        if (tag.getItemId() != null) traceItemMapper.updateNfcStatus(tag.getItemId(), "DISABLED:" + chainStatus);
+        return get(tag.getId());
     }
 
     private String itemCodeForChain(TraceItemEntity item) {

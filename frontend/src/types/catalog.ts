@@ -61,6 +61,7 @@ export interface TraceEventEntity {
 }
 
 export interface NfcTagEntity {
+  chainStatus?: string
   id: number
   uidHash: string
   tagHash?: string

@@ -72,6 +72,9 @@ export function appendEvent(itemId: number, body: CreateTraceEventRequest): Prom
 
 /* ---- NFC ---- */
 
+export function listNfcTags(): Promise<NfcTagEntity[]> { return get<NfcTagEntity[]>('/nfc') }
+export function getNfcTag(id: number): Promise<NfcTagEntity> { return get<NfcTagEntity>(`/nfc/${id}`) }
+
 export function bindNfc(body: BindNfcRequest): Promise<NfcTagEntity> {
   return post<NfcTagEntity>('/nfc/bind', body)
 }

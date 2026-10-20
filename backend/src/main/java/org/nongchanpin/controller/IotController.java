@@ -11,6 +11,10 @@ import org.nongchanpin.service.IotDeviceService;
 import org.nongchanpin.service.IotQueryService;
 import org.nongchanpin.service.IotTelemetryService;
 import org.nongchanpin.service.IotWindowAggregationService;
+import org.nongchanpin.config.MqttProperties;
+import org.nongchanpin.iot.MqttTelemetryAdapter;
+import org.springframework.beans.factory.ObjectProvider;
+import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -26,6 +30,14 @@ public class IotController {
     private final IotDeviceService deviceService;
     private final IotQueryService queryService;
     private final IotWindowAggregationService windowAggregationService;
+    private final MqttProperties mqttProperties;
+    private final ObjectProvider<MqttTelemetryAdapter> mqttAdapter;
+
+    @GetMapping("/status")
+    public CommonResponse status() {
+        MqttTelemetryAdapter adapter = mqttAdapter.getIfAvailable();
+        return CommonResponse.ok(Map.of("mqttEnabled", mqttProperties.isEnabled(), "mqttConnected", adapter != null && adapter.isConnected()));
+    }
 
     @PostMapping("/telemetry/mock")
     public CommonResponse mockTelemetry(@RequestBody TelemetryRequest request) {

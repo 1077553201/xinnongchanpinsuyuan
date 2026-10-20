@@ -5,6 +5,7 @@ import lombok.Data;
 
 @Data
 public class NfcTagEntity {
+    private String chainStatus;
     private Long id;
     private String uidHash;
     private String tagHash;

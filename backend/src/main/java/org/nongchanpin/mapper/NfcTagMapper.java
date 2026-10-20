@@ -7,9 +7,16 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 import org.nongchanpin.model.entity.NfcTagEntity;
+import java.util.List;
 
 @Mapper
 public interface NfcTagMapper {
+    @Select("SELECT * FROM nfc_tag ORDER BY id DESC LIMIT 200")
+    List<NfcTagEntity> findRecent();
+
+    @Select("SELECT * FROM nfc_tag WHERE item_id = #{itemId} ORDER BY id DESC LIMIT 1")
+    NfcTagEntity findLatestByItemId(Long itemId);
+
     @Insert("INSERT INTO nfc_tag (uid_hash, tag_hash, item_id, bind_status, bound_at, status) "
             + "VALUES (#{uidHash}, #{tagHash}, #{itemId}, #{bindStatus}, #{boundAt}, #{status})")
     @Options(useGeneratedKeys = true, keyProperty = "id")

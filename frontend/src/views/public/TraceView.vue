@@ -7,7 +7,7 @@ import TraceTimeline from '@/components/TraceTimeline.vue'
 import VerifySeal from '@/components/VerifySeal.vue'
 import { fetchTrace } from '@/api/publicTrace'
 import { ApiError, apiErrorMessage } from '@/api/http'
-import { formatDate, shortHash } from '@/types/api'
+import { formatDate, formatDateTime, nfcStatusLabel, shortHash } from '@/types/api'
 import type { PublicTraceView, TraceEnvironment } from '@/types/trace'
 import { qualityAssessment, recordAssessment, traceVerdict } from '@/utils/traceVerdict'
 
@@ -50,7 +50,15 @@ const product = computed(() => trace.value?.product)
 const batch = computed(() => trace.value?.batch)
 const item = computed(() => trace.value?.item)
 const verification = computed(() => trace.value?.chainVerification)
-const environments = computed<TraceEnvironment[]>(() => (trace.value?.environmentSummary ?? []).slice(0, 8))
+const environments = computed<TraceEnvironment[]>(() => {
+  const seen = new Set<string>()
+  return (trace.value?.environmentSummary ?? []).filter(env => {
+    const key = `${env.deviceCode}-${env.metric}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  }).slice(0, 8)
+})
 const reports = computed(() => trace.value?.qualityReports ?? [])
 const events = computed(() => trace.value?.timeline ?? [])
 
@@ -181,9 +189,8 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
           <span class="muted tiny">关联到当前批次的设备采样</span>
         </header>
         <div v-if="environments.length" class="metrics">
+          <div v-for="env in environments" :key="`${env.deviceCode}-${env.metric}-${env.windowStart}`">
           <MetricBar
-            v-for="env in environments"
-            :key="`${env.deviceCode}-${env.metric}-${env.windowStart}`"
             :metric="env.metric || ''"
             :avg="env.avgValue"
             :min="env.minValue"
@@ -191,6 +198,8 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
             :sample-count="env.sampleCount"
             :chain-status="env.chainStatus"
           />
+          <p class="muted tiny">{{ env.deviceCode }} · {{ formatDateTime(env.windowStart) }} 起</p>
+          </div>
         </div>
         <p v-if="!environments.length" class="muted empty">暂无可用的环境采样。</p>
       </GlassPanel>
@@ -252,7 +261,7 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
         </p>
         <p class="muted tiny">
           单品状态 {{ item?.status || '—' }} · 二维码 {{ item?.qrStatus || '—' }} · NFC
-          {{ item?.nfcStatus || '—' }}
+          {{ nfcStatusLabel(item?.nfcStatus) }}
         </p>
         <p v-if="verification?.records?.length" class="records">
           <span

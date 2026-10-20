@@ -11,6 +11,13 @@ import org.nongchanpin.model.entity.IotSensorReadingEntity;
 
 @Mapper
 public interface IotSensorReadingMapper {
+    @Select({"<script>", "SELECT * FROM iot_sensor_reading WHERE 1 = 1",
+            "<if test='deviceCode != null'>AND device_code = #{deviceCode}</if>",
+            "<if test='metric != null'>AND metric = #{metric}</if>",
+            "ORDER BY reported_at DESC LIMIT #{limit}", "</script>"})
+    List<IotSensorReadingEntity> findFiltered(@Param("deviceCode") String deviceCode, @Param("metric") String metric,
+            @Param("limit") int limit);
+
     @Insert("INSERT INTO iot_sensor_reading (farm_id, gateway_code, device_code, batch_id, metric, value, unit, signature, reported_at, status) "
             + "VALUES (#{farmId}, #{gatewayCode}, #{deviceCode}, #{batchId}, #{metric}, #{value}, #{unit}, #{signature}, #{reportedAt}, #{status})")
     @Options(useGeneratedKeys = true, keyProperty = "id")

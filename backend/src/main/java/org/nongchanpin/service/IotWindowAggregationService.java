@@ -7,6 +7,8 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.nongchanpin.chain.ChainService;
 import org.nongchanpin.chain.ChainStatus;
@@ -46,17 +48,29 @@ public class IotWindowAggregationService {
     public IotDataWindowEntity aggregateForReading(IotSensorReadingEntity reading) {
         LocalDateTime start = bucketStart(reading.getReportedAt());
         LocalDateTime end = start.plusMinutes(iotProperties.getWindowMinutes());
-        return aggregate(reading.getDeviceCode(), reading.getMetric(), reading.getFarmId(),
-                reading.getGatewayCode(), start, end);
+        return aggregateScoped(reading.getDeviceCode(), reading.getMetric(), reading.getFarmId(),
+                reading.getGatewayCode(), start, end, reading.getBatchId(), true);
     }
 
     @Transactional
     public IotDataWindowEntity aggregate(String deviceCode, String metric, Long farmId, String gatewayCode,
             LocalDateTime start, LocalDateTime end) {
+        return aggregateScoped(deviceCode, metric, farmId, gatewayCode, start, end, null, false);
+    }
+
+    private IotDataWindowEntity aggregateScoped(String deviceCode, String metric, Long farmId, String gatewayCode,
+            LocalDateTime start, LocalDateTime end, Long targetBatchId, boolean scoped) {
+        if (start == null || end == null || !end.isAfter(start)) throw new IllegalArgumentException("invalid aggregation window");
         List<IotSensorReadingEntity> readings = readingMapper.findInWindow(deviceCode, metric, start, end);
+        if (scoped) readings = readings.stream().filter(reading -> Objects.equals(targetBatchId, reading.getBatchId())).collect(Collectors.toList());
+        else if (readings.stream().map(IotSensorReadingEntity::getBatchId).distinct().count() > 1) {
+            throw new IllegalArgumentException("window includes multiple batches; aggregate by batch");
+        }
         if (readings.isEmpty()) {
             return null;
         }
+        if (farmId == null) farmId = readings.get(0).getFarmId();
+        if (gatewayCode == null || gatewayCode.isBlank()) gatewayCode = readings.get(0).getGatewayCode();
         BigDecimal min = null;
         BigDecimal max = null;
         BigDecimal sum = BigDecimal.ZERO;
@@ -81,6 +95,9 @@ public class IotWindowAggregationService {
         BigDecimal avg = sum.divide(BigDecimal.valueOf(sampleCount), VALUE_SCALE, RoundingMode.HALF_UP);
         Map<String, Object> payload = payloadService.map();
         payload.put("deviceCode", deviceCode);
+        payload.put("batchId", batchId);
+        payload.put("farmId", farmId);
+        payload.put("gatewayCode", gatewayCode);
         payload.put("metric", metric);
         payload.put("windowStart", start.toString());
         payload.put("windowEnd", end.toString());
@@ -127,7 +144,7 @@ public class IotWindowAggregationService {
             return ChainStatus.CHAIN_DISABLED.name();
         }
         String windowId = window.getDeviceCode() + ":" + window.getMetric() + ":"
-                + start.atZone(ZONE_ID).toEpochSecond();
+                + start.atZone(ZONE_ID).toEpochSecond() + ":" + window.getDataHash();
         ChainTransactionEntity tx = chainTransactionService.createPending(IotConstants.WINDOW_CHAIN_BUSINESS_TYPE,
                 window.getId(), HashUtils.hashBusinessIdHex(windowId), contractConfig.getAgriTraceAddress(),
                 IotConstants.WINDOW_CHAIN_EVENT_NAME, "0x" + window.getDataHash(), window.getDataHash());
