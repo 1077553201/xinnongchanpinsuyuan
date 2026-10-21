@@ -6,6 +6,8 @@ import org.nongchanpin.mapper.ProductMapper;
 import org.nongchanpin.model.dto.CreateProductRequest;
 import org.nongchanpin.model.entity.ProductEntity;
 import org.springframework.stereotype.Service;
+import org.nongchanpin.security.AccessContext;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -13,6 +15,8 @@ public class ProductService {
     private final ProductMapper productMapper;
 
     public ProductEntity create(CreateProductRequest request) {
+        AccessContext.write();
+        AccessContext.checkOrganization(request.getOrganizationId());
         ProductEntity product = new ProductEntity();
         product.setOrganizationId(request.getOrganizationId());
         product.setProductCode(request.getProductCode());
@@ -27,7 +31,8 @@ public class ProductService {
     }
 
     public List<ProductEntity> findAll() {
-        return productMapper.findAll();
+        Long organization = AccessContext.organization();
+        return productMapper.findAll().stream().filter(product -> organization == null || organization.equals(product.getOrganizationId())).collect(Collectors.toList());
     }
 
     public ProductEntity get(Long id) {
@@ -35,6 +40,7 @@ public class ProductService {
         if (product == null) {
             throw new IllegalArgumentException("product not found");
         }
+        AccessContext.checkOrganization(product.getOrganizationId());
         return product;
     }
 }

@@ -93,8 +93,24 @@ class IotTelemetryServiceTest {
     }
 
     private IotTelemetryService service() {
+        MonitoringService monitoring = mock(MonitoringService.class);
+        org.mockito.Mockito.doAnswer(invocation -> {
+            ((IotSensorReadingEntity) invocation.getArgument(0)).setResolution("BOUND"); return null;
+        }).when(monitoring).attribute(any(), any());
         return new IotTelemetryService(gatewayMapper, deviceMapper, readingMapper, batchMapper, anomalyService,
-                aggregationService, iotProperties);
+                aggregationService, iotProperties, monitoring, mock(GrowingEnvironmentService.class));
+    }
+
+    @Test void simulatedSampleCannotTriggerFormalAlertsWindowsOrOnlineStatus() {
+        IotGatewayEntity gateway = new IotGatewayEntity(); gateway.setId(5L);
+        when(gatewayMapper.findByCode("GW1")).thenReturn(gateway);
+        IotDeviceEntity device = new IotDeviceEntity(); device.setId(6L);
+        when(deviceMapper.findByCode("DEV1")).thenReturn(device);
+        IotIngestResult result = service().ingestMock(request("temperature", "99", null));
+        assertEquals("SIMULATED", result.getReading().getStatus());
+        assertEquals(null, result.getWindow());
+        org.mockito.Mockito.verifyNoInteractions(anomalyService, aggregationService);
+        verify(deviceMapper, never()).updateLastSeen(any(), any(), any());
     }
 
     private IotGatewayEntity gateway() {

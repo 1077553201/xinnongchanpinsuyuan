@@ -11,6 +11,7 @@
 html {
   -webkit-text-size-adjust: 100%;
   scroll-behavior: smooth;
+  scrollbar-gutter: stable;
 }
 
 html,
@@ -195,6 +196,10 @@ table {
 .grow {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+@media (max-width: 560px) {
+  .action-button { min-height: 44px; }
 }
 
 /* ---- 无障碍：尊重系统的减弱动效偏好 ---- */

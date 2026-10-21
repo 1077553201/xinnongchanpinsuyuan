@@ -159,7 +159,34 @@ class IotWindowAggregationServiceTest {
         ContractConfig contractConfig = new ContractConfig();
         contractConfig.setAgriTraceAddress("0xcontract");
         return new IotWindowAggregationService(readingMapper, windowMapper, batchMapper, chainService, txService,
-                new ChainWriteSupport(txService), new PayloadService(), iotProperties, contractConfig);
+                new ChainWriteSupport(txService), new PayloadService(), iotProperties, contractConfig,
+                mock(org.nongchanpin.mapper.MonitoringMapper.class));
+    }
+
+    @Test void manualWindowRejectsSameDeviceAcrossPlantingBindings() {
+        LocalDateTime start = LocalDateTime.of(2026, 10, 20, 10, 0);
+        IotSensorReadingEntity first = reading("20", start.plusSeconds(1), null);
+        first.setCycleId(10L); first.setBindingId(100L);
+        IotSensorReadingEntity second = reading("80", start.plusSeconds(2), null);
+        second.setCycleId(11L); second.setBindingId(101L);
+        when(readingMapper.findInWindow("DEV1", "temperature", start, start.plusMinutes(5))).thenReturn(List.of(first, second));
+        assertThrows(IllegalArgumentException.class, () -> service().aggregate("DEV1", "temperature", 1L, "GW1", start, start.plusMinutes(5)));
+        verifyNoInteractions(windowMapper, chainService);
+    }
+
+    @Test void automaticWindowExcludesPreviousPlantingWithinSameTimeBucket() {
+        LocalDateTime start = LocalDateTime.of(2026, 10, 20, 10, 0);
+        IotSensorReadingEntity first = reading("20", start.plusSeconds(1), null);
+        first.setCycleId(10L); first.setBindingId(100L); first.setPlotId(3L);
+        IotSensorReadingEntity second = reading("80", start.plusSeconds(2), null);
+        second.setCycleId(11L); second.setBindingId(101L); second.setPlotId(4L);
+        when(readingMapper.findInWindow("DEV1", "temperature", start, start.plusMinutes(5))).thenReturn(List.of(first, second));
+        when(windowMapper.findByDataHash(any())).thenReturn(null, new IotDataWindowEntity());
+        service().aggregateForReading(first);
+        org.mockito.ArgumentCaptor<IotDataWindowEntity> capture = org.mockito.ArgumentCaptor.forClass(IotDataWindowEntity.class);
+        verify(windowMapper).insert(capture.capture());
+        assertEquals(1, capture.getValue().getSampleCount()); assertEquals(new BigDecimal("20.000000"), capture.getValue().getAvgValue());
+        assertEquals(10L, capture.getValue().getCycleId()); assertEquals(100L, capture.getValue().getBindingId());
     }
 
     private IotSensorReadingEntity reading(String value, LocalDateTime reportedAt, Long batchId) {

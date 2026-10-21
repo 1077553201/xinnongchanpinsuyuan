@@ -7,14 +7,18 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 import org.nongchanpin.model.entity.IotSensorReadingEntity;
 
 @Mapper
 public interface IotSensorReadingMapper {
-    @Select({"<script>", "SELECT * FROM iot_sensor_reading WHERE 1 = 1",
-            "<if test='deviceCode != null'>AND device_code = #{deviceCode}</if>",
-            "<if test='metric != null'>AND metric = #{metric}</if>",
-            "ORDER BY reported_at DESC LIMIT #{limit}", "</script>"})
+    @Update("UPDATE iot_sensor_reading SET batch_id = NULL WHERE id = #{id}")
+    int clearUnverifiedBatch(Long id);
+    @Select({"<script>", "SELECT r.*, p.binding_id, p.plot_id, p.cycle_id, p.resolution, p.reason AS resolution_reason "
+            + "FROM iot_sensor_reading r LEFT JOIN reading_provenance p ON p.reading_id = r.id WHERE 1 = 1",
+            "<if test='deviceCode != null'>AND r.device_code = #{deviceCode}</if>",
+            "<if test='metric != null'>AND r.metric = #{metric}</if>",
+            "ORDER BY r.reported_at DESC, r.id DESC LIMIT #{limit}", "</script>"})
     List<IotSensorReadingEntity> findFiltered(@Param("deviceCode") String deviceCode, @Param("metric") String metric,
             @Param("limit") int limit);
 
@@ -23,8 +27,11 @@ public interface IotSensorReadingMapper {
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(IotSensorReadingEntity reading);
 
-    @Select("SELECT * FROM iot_sensor_reading WHERE device_code = #{deviceCode} AND metric = #{metric} "
-            + "AND reported_at >= #{start} AND reported_at < #{end} ORDER BY reported_at ASC")
+    @Select("SELECT r.*, p.binding_id, p.plot_id, p.cycle_id, p.resolution, p.reason AS resolution_reason "
+            + "FROM iot_sensor_reading r LEFT JOIN reading_provenance p ON p.reading_id = r.id "
+            + "WHERE r.device_code = #{deviceCode} AND r.metric = #{metric} "
+            + "AND r.reported_at >= #{start} AND r.reported_at < #{end} AND r.status = 'RAW' "
+            + "AND (p.reading_id IS NULL OR p.resolution = 'BOUND') ORDER BY r.reported_at ASC, r.id ASC")
     List<IotSensorReadingEntity> findInWindow(@Param("deviceCode") String deviceCode,
             @Param("metric") String metric, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 

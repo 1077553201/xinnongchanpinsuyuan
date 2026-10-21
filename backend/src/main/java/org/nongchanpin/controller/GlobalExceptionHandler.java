@@ -10,6 +10,18 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(javax.validation.ConstraintViolationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public CommonResponse handleConstraint(javax.validation.ConstraintViolationException ex) {
+        String message = ex.getConstraintViolations().stream().findFirst()
+                .map(violation -> violation.getPropertyPath() + " " + violation.getMessage()).orElse("请检查填写内容。");
+        return new CommonResponse("400", message, null);
+    }
+    @ExceptionHandler(org.nongchanpin.security.AccessException.class)
+    public org.springframework.http.ResponseEntity<CommonResponse> handleAccess(org.nongchanpin.security.AccessException ex) {
+        return org.springframework.http.ResponseEntity.status(ex.getStatus())
+                .body(new CommonResponse(String.valueOf(ex.getStatus()), ex.getMessage(), null));
+    }
     @ExceptionHandler(DuplicateKeyException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public CommonResponse handleDuplicate(DuplicateKeyException ex) {
@@ -35,6 +47,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public CommonResponse handleException(Exception ex) {
-        return new CommonResponse("500", ex.getMessage(), null);
+        return new CommonResponse("500", "服务暂时无法处理请求，请稍后重试。", null);
     }
 }

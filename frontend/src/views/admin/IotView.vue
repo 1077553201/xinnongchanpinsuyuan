@@ -21,7 +21,7 @@ const tab = ref<Tab>('readings')
 const current = computed(() => resources[tab.value])
 const tabs: { key: Tab; label: string }[] = [{ key: 'readings', label: '近期读数' }, { key: 'windows', label: '窗口摘要' }, { key: 'alerts', label: '异常告警' }, { key: 'devices', label: '设备' }, { key: 'gateways', label: '网关 / 小车' }]
 const columns: Record<Tab, { key: string; label: string }[]> = {
-  readings: [{ key: 'deviceCode', label: '设备' }, { key: 'gatewayCode', label: '网关' }, { key: 'metric', label: '指标' }, { key: 'value', label: '读数' }, { key: 'reportedAt', label: '采样时间' }, { key: 'batchId', label: '批次 ID' }],
+  readings: [{ key: 'deviceCode', label: '设备' }, { key: 'gatewayCode', label: '网关' }, { key: 'metric', label: '指标' }, { key: 'value', label: '读数' }, { key: 'reportedAt', label: '采样时间' }, { key: 'status', label: '来源类别' }, { key: 'resolution', label: '种植归属' }, { key: 'batchId', label: '批次 ID' }],
   windows: [{ key: 'deviceCode', label: '设备' }, { key: 'metric', label: '指标' }, { key: 'avgValue', label: '均值' }, { key: 'sampleCount', label: '样本数' }, { key: 'windowStart', label: '窗口开始' }, { key: 'chainStatus', label: '上链状态' }, { key: 'dataHash', label: '数据摘要' }],
   alerts: [{ key: 'deviceCode', label: '设备' }, { key: 'metric', label: '指标' }, { key: 'value', label: '读数' }, { key: 'message', label: '告警内容' }, { key: 'occurredAt', label: '发生时间' }, { key: 'status', label: '处理状态' }],
   devices: [{ key: 'deviceCode', label: '设备编码' }, { key: 'deviceName', label: '名称' }, { key: 'gatewayCode', label: '网关' }, { key: 'deviceType', label: '类型' }, { key: 'lastSeenAt', label: '最近上报' }],
@@ -32,7 +32,7 @@ const rows = computed(() => ((current.value.data.value ?? []) as unknown as Reco
   && (!metricFilter.value || !row.metric || row.metric === metricFilter.value)))
 const trend = computed(() => {
   if (!metricFilter.value || !deviceFilter.value) return []
-  return (readings.data.value ?? []).filter(r => r.metric === metricFilter.value && r.deviceCode === deviceFilter.value).slice().sort((a, b) => a.reportedAt.localeCompare(b.reportedAt))
+  return (readings.data.value ?? []).filter(r => r.metric === metricFilter.value && r.deviceCode === deviceFilter.value && r.status === 'RAW' && r.resolution === 'BOUND').slice().sort((a, b) => a.reportedAt.localeCompare(b.reportedAt))
 })
 const trendPoints = computed(() => {
   const values = trend.value.map(r => Number(r.value)).filter(Number.isFinite)
@@ -52,11 +52,13 @@ watch([deviceFilter, metricFilter], () => { void Promise.all([readings.load(), w
 function open(kind: typeof mode.value) { Object.keys(draft).forEach(key => delete draft[key]); Object.assign(draft, { metric: 'temperature', deviceCode: deviceFilter.value }); mode.value = kind; error.value = ''; uncertain.value = false }
 function cell(row: Record<string, unknown>, key: string): string {
   const value = row[key]
+  if (key === 'resolution') return value === 'BOUND' ? '按历史绑定关联' : value === 'UNRESOLVED' ? '待核实，不计入正式汇总' : '历史来源未标明'
+  if (key === 'status' && value === 'RAW' && !row.resolution) return '历史样本，来源未分类'
   if (value === null || value === undefined || value === '') return '—'
   if (key === 'metric') return metricMeta(String(value)).label
   if (key === 'dataHash') return shortHash(String(value))
   if (['reportedAt','occurredAt','lastSeenAt','windowStart'].includes(key)) return formatDateTime(String(value))
-  if (key === 'status') return ({ OPEN: '待处理', CLOSED: '已处理', RESOLVED: '已处理', ACTIVE: '已登记' } as Record<string,string>)[String(value)] ?? String(value)
+  if (key === 'status') return ({ OPEN: '待处理', CLOSED: '已处理', RESOLVED: '已处理', ACTIVE: '已登记', RAW: '设备接入报文', SIMULATED: '人工模拟测试' } as Record<string,string>)[String(value)] ?? String(value)
   if (key === 'value' || key === 'avgValue') return `${formatNumber(value as string)} ${metricMeta(String(row.metric)).unit}`
   return String(value)
 }
@@ -94,7 +96,7 @@ async function save() {
     <p v-if="notice" class="notice" role="status">{{ notice }}</p>
     <GlassPanel class="stack"><div class="toolbar"><div><p class="eyebrow">生产环境</p><h2 class="display">设备、采样与异常</h2></div><button class="action-button" type="button" :disabled="current.loading.value" @click="refresh">刷新监控</button></div>
       <ResourceState :loading="status.loading.value" :error="status.error.value" @retry="status.load"><StatusChip :tone="status.data.value?.mqttConnected ? 'ok' : 'off'" :label="status.data.value?.mqttConnected ? 'MQTT 已连接' : status.data.value?.mqttEnabled ? 'MQTT 未连接' : 'MQTT 订阅未启用'" /></ResourceState>
-      <p class="muted tiny">固定网关与巡检小车共用采样通道，按网关编码区分。下方显示最近最多 100 条读数、窗口或告警，筛选仅作用于当前结果；设备身份尚未校验，模拟采样不代表实际硬件测量。</p>
+      <p class="muted tiny">下方显示最近最多 100 条记录，筛选作用于当前结果。设备报文仍需身份验签；模拟采样单独标记，不计入正式告警、环境摘要或上链。生产监测请先在“监测与设备绑定”确认归属，小车跨地巡检尚未接入任务。</p>
       <div class="actions"><button class="action-button" type="button" @click="open('gateway')">登记网关</button><button class="action-button" type="button" @click="open('device')">登记设备</button><button class="action-button" type="button" @click="open('telemetry')">模拟采样</button><button class="action-button" type="button" @click="open('aggregate')">手动聚合窗口</button></div>
       <div class="actions" role="group" aria-label="监控记录类型"><button v-for="entry in tabs" :key="entry.key" class="action-button" :class="{ primary: tab === entry.key }" type="button" :aria-pressed="tab === entry.key" @click="tab = entry.key">{{ entry.label }}</button></div>
       <form class="filters" @submit.prevent><label>网关 / 小车<select v-model="gatewayFilter" class="field-input"><option value="">全部网关</option><option v-for="gateway in gateways.data.value" :key="gateway.id" :value="gateway.gatewayCode">{{ gateway.gatewayName || gateway.gatewayCode }}</option></select></label><label>设备<select v-model="deviceFilter" class="field-input"><option value="">全部设备</option><option v-for="device in devices.data.value" :key="device.id" :value="device.deviceCode">{{ device.deviceName || device.deviceCode }}</option></select></label><label>指标<select v-model="metricFilter" class="field-input"><option value="">全部指标</option><option v-for="(value, key) in METRIC_META" :key="key" :value="key">{{ value.label }}</option></select></label></form>

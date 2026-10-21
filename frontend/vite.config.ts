@@ -16,7 +16,9 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
+      host: '0.0.0.0',
       port: 5173,
+      strictPort: true,
       proxy: {
         // 后端未配置 CORS，开发期统一走 dev 代理，前端零跨域
         '/api': {
@@ -29,5 +31,6 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist',
       sourcemap: false,
     },
+    preview: { host: '0.0.0.0', port: 4173, strictPort: true },
   }
 })

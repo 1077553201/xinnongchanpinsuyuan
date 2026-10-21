@@ -134,6 +134,12 @@ public class MqttTelemetryAdapter {
     private void enrichFromTopic(String topic, TelemetryRequest request) {
         String[] segments = topic.split("/");
         if (segments.length >= 4) {
+            if (request.getFarmId() != null && !request.getFarmId().equals(parseLong(segments[1]))) {
+                throw new IllegalArgumentException("telemetry farm does not match MQTT topic");
+            }
+            if (StringUtils.hasText(request.getGatewayCode()) && !request.getGatewayCode().equals(segments[2])) {
+                throw new IllegalArgumentException("telemetry gateway does not match MQTT topic");
+            }
             if (request.getFarmId() == null) {
                 request.setFarmId(parseLong(segments[1]));
             }

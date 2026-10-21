@@ -10,7 +10,12 @@
 - IoT：网关/设备登记、近期读数与趋势、窗口摘要、告警、模拟上报和手动聚合。
 - NFC：UID 关联、标签查询、停用及链状态反馈；交易列表支持筛选和详情。
 
-登录鉴权和 AI Provider 尚未接入，页面明确为未启用状态。本仓库当前面向本地研发与联调，不应把开发入口当作已完成认证的生产后台。
+- 生产基础：地块登记、种植周期与历史、固定设备绑定和本轮监测；外观可切换晨光绿 / 柔光玻璃。
+- 账号权限：真实会话登录，管理员 / 生产人员 / 只读人员，所属机构范围及新生产操作审计。
+- 环境与农事：按种植周期配置环境规则并保留版本、安排农事及登记实际投入、记录环境异常处置；待办农事和未处置异常参与结束种植检查。
+- 页面布局：桌面全宽管理台、统一侧栏与页头对齐，手机使用右侧导航抽屉；详见 [布局与外部访问说明](docs/FULL_WIDTH_MOBILE_LAYOUT.md)。
+
+后台现在需要登录，公众扫码查询不需要。AI Agent 执行仍未接入。当前面向本地研发与联调，尚未完成生产部署与田间硬件验收。
 
 ## 本地启动
 
@@ -31,12 +36,14 @@
 ```powershell
 cd frontend
 npm install
-npm run dev -- --host 127.0.0.1 --strictPort
+npm run dev
 ```
 
 打开管理台 `http://127.0.0.1:5173/admin`。前端 `/api` 经 Vite 代理到后端 8080。修改 `.env` 后重启后端；若从 IDE 启动，需自行注入运行环境变量，Spring Boot 不会自动读取根目录 `.env`。
 
-手机扫码需要手机可达的前端地址及网络；默认开发服务仅监听本机。二维码预览可指定访问地址，但不会自动开放网络，也不会改写已存证记录。
+首次登录与升级见 [身份权限与监测归属](docs/IDENTITY_MONITORING_STAGE.md)。已有库先执行第二批增量迁移；首次管理员由本地脚本初始化，随机密码保存在忽略文件 `.local/initial-admin.json`，登录后可修改。脚本不覆盖已有账号。
+
+开发服务默认监听 `0.0.0.0:5173`，在同一网络的手机或其他电脑上使用 `http://<开发电脑局域网IP>:5173` 访问；`0.0.0.0` 是监听地址，不是浏览器访问地址。API 仍由前端代理到本机后端。外部网络需已有路由转发或隧道及相应防火墙放行，本配置不会自动配置它们。二维码预览可指定手机可达的访问地址，不会改写已存证记录。
 
 ## 验证与目录
 
@@ -50,8 +57,21 @@ mvn test
 
 `frontend/` 为 Vue 3/TypeScript 页面；`backend/` 为 Spring Boot/MyBatis/FISCO 适配；`contract/` 为合约与部署说明；`database/` 为 SQL；`docs/FRONTEND_STAGE*.md` 记录各阶段事实与验证边界；`AGENTS.md` 为协作规范。
 
-联调保留了 `QA-S2-*`、`QA-S3-*`、`QA-S5-*` 测试记录，它们不代表真实产品或硬件采集。链上记录不可当作普通测试文件清理；不要删除对应链下证据。
+联调保留了 `QA-S2-*`、`QA-S3-*`、`QA-S5-*`、`QA-GROW-*`、`QA-ID-GROW-*`、`QA-UI-GROW-*` 测试记录，它们不代表真实产品或硬件采集。链上记录不可当作普通测试文件清理；不要删除对应链下证据。
 
 ## 尚需独立完成
 
-账号权限与生产部署、AI 服务提供方、设备身份验签、动态防克隆 NFC/换绑、全局写入幂等与异步对账、海量数据的服务端分页。不要把链上摘要核验等同于实物质量或设备身份保证。
+业务方向与分期见 [生产到销售及 Agent 规划](docs/PRODUCTION_TO_SALES_AGENT_PLAN.md)。本轮新增地块登记、种植周期开启/结束和历史档案，管理台顶部可切换“晨光绿 / 柔光玻璃”，外观选择保存在本机浏览器。
+
+已有数据库升级时，执行 `database/migrations/001_production_foundation.sql`，仅新增 `farm_plot`、`planting_cycle`，不重新执行示例数据。新环境的 `database/schema.sql` 已包含这两张表。也可在仓库根目录用现有 MySQL JDBC 驱动运行：
+
+```powershell
+# 按本机实际安装位置填写 Java 和 MySQL JDBC 驱动路径；连接配置从 .env 读取
+& '<Java 11目录>/bin/java.exe' '-Dfile.encoding=UTF-8' -cp '<mysql-connector-java.jar路径>' scripts/ApplyProductionSchema.java
+```
+
+实现范围与验证见 [生产基础与主题改造](docs/PRODUCTION_FOUNDATION_STAGE.md)、[身份权限与监测归属](docs/IDENTITY_MONITORING_STAGE.md)。第二批迁移为 `database/migrations/002_identity_monitoring.sql`，新增身份审计和监测来源表及三类角色，不自动重分配历史数据。
+
+第三批迁移 `database/migrations/003_growing_operations.sql` 新增环境规则、样本判断、异常、农事任务和实际执行五张表。已有库完成前两批迁移后再执行；也可使用 `scripts/ApplyGrowingSchema.java`，用法同上述 JDBC 命令。新环境完整结构已同步。功能、数据边界和验证见 [环境规则与农事作业](docs/GROWING_OPERATIONS_STAGE.md)，设备反馈见 [待优化清单](docs/OPTIMIZATION_BACKLOG.md)。
+
+采收包装及库存销售、运输交付、Agent 确认执行仍需按规划实施。设备身份验签、小车任务、动态防克隆 NFC/换绑、全局写入幂等与异步对账、海量数据分页和生产部署也尚未完成。环境范围必须单独按实际依据配置，备注不自动成为规则；待执行农事、未处置环境异常和活动设备绑定已参与结束种植检查，采收条件待采收模块接入。未完成机构隔离的旧模块暂限管理员访问。不要把链上摘要核验等同于实物质量或设备身份保证。

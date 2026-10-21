@@ -23,6 +23,11 @@ export interface IotDeviceEntity {
 
 export interface IotSensorReadingEntity {
   id: number
+  cycleId?: number
+  plotId?: number
+  bindingId?: number
+  resolution?: string
+  resolutionReason?: string
   farmId: number
   gatewayCode: string
   deviceCode: string
@@ -37,6 +42,9 @@ export interface IotSensorReadingEntity {
 
 export interface IotDataWindowEntity {
   id: number
+  cycleId?: number
+  plotId?: number
+  bindingId?: number
   farmId: number
   batchId?: number
   gatewayCode?: string

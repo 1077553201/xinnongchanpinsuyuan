@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { useAuth } from '@/composables/useAuth'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -33,7 +34,31 @@ const routes: RouteRecordRaw[] = [
         path: '',
         name: 'admin-home',
         component: () => import('@/views/admin/DashboardView.vue'),
-        meta: { title: '总览', eyebrow: 'Dashboard' },
+        meta: { title: '工作台', eyebrow: 'Farm workspace' },
+      },
+      {
+        path: 'production',
+        name: 'admin-production',
+        component: () => import('@/views/admin/ProductionView.vue'),
+        meta: { title: '地块与种植', eyebrow: 'Fields & growing seasons' },
+      },
+      {
+        path: 'farming',
+        name: 'admin-farming',
+        component: () => import('@/views/admin/FarmOperationsView.vue'),
+        meta: { title: '环境与农事', eyebrow: 'Growing & fieldwork' },
+      },
+      {
+        path: 'monitoring',
+        name: 'admin-monitoring',
+        component: () => import('@/views/admin/MonitoringView.vue'),
+        meta: { title: '监测与设备绑定', eyebrow: 'Growing environment' },
+      },
+      {
+        path: 'accounts',
+        name: 'admin-accounts',
+        component: () => import('@/views/admin/AccountsView.vue'),
+        meta: { title: '账号与权限', eyebrow: 'People & access' },
       },
       {
         path: 'products',
@@ -81,10 +106,20 @@ const routes: RouteRecordRaw[] = [
   },
 ]
 
-export default createRouter({
+const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes,
   scrollBehavior() {
     return { top: 0 }
   },
 })
+router.beforeEach(async to => {
+  if (!to.matched.some(record => record.path === '/admin')) return true
+  const auth = useAuth()
+  try {
+    if (!await auth.restore()) return { path: '/login', query: { redirect: to.fullPath } }
+  } catch { return { path: '/login', query: { unavailable: '1', redirect: to.fullPath } } }
+  if (!auth.isAdmin.value && !['/admin', '/admin/production', '/admin/farming', '/admin/monitoring', '/admin/accounts', '/admin/ai'].includes(to.path)) return '/admin/production'
+  return true
+})
+export default router

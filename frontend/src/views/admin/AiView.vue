@@ -3,6 +3,19 @@ import GlassPanel from '@/components/GlassPanel.vue'
 import StatusChip from '@/components/StatusChip.vue'
 </script>
 <template>
-  <div class="stack"><GlassPanel padded="large" class="ai-intro"><p class="eyebrow">农场助手</p><h2 class="display">让记录帮助下一次判断</h2><StatusChip tone="off" label="AI 服务未启用" /><p>当前可以通过产品台账、设备监控和溯源记录查看业务事实。AI 问答尚未接入，因此暂时不能提问。</p><p class="muted tiny">启用后，助手将基于可访问的记录提供解释和建议，并与已核验事实分开呈现。</p></GlassPanel><GlassPanel padded="large" class="ai-intro"><h2 class="display">计划提供的帮助</h2><ul><li>汇总批次生产和流转记录</li><li>解释设备趋势与异常告警</li><li>回答消费者关于当前产品记录的问题</li></ul><p class="muted tiny">当前不生成模拟回答，也不会通过 AI 修改业务、写链或控制设备。</p></GlassPanel></div>
+  <div class="stack">
+    <GlassPanel padded="large" class="ai-intro">
+      <p class="eyebrow">农场业务助理</p>
+      <h2 class="display">说完一天的事，整理成可核对的操作。</h2>
+      <StatusChip tone="off" label="Agent 尚未接入" />
+      <p>未来可以把一天的种植、农事、采收与发货情况发给助理。它先查询业务资料、整理操作清单，补问不明确的内容，再由你确认执行。</p>
+      <p class="muted tiny">目前请通过地块与种植等页面办理业务。对话服务与确认执行流程尚未启用。</p>
+    </GlassPanel>
+    <GlassPanel padded="large" class="ai-intro">
+      <h2 class="display">计划中的处理流程</h2>
+      <ol><li>理解日报，区分已经发生的事情与后续计划</li><li>匹配地块、种植周期、人员与批次，核对缺失信息</li><li>列出待确认操作，支持逐项修改或排除</li><li>确认后调用业务服务，逐项返回实际结果</li></ol>
+      <p class="muted tiny">后续接入查询复盘、环境异常解释与巡检任务协同。业务保存、链上存证和设备完成分别报告，不以聊天回答代替执行结果。</p>
+    </GlassPanel>
+  </div>
 </template>
-<style scoped>.ai-intro { display: grid; gap: 18px; border-radius: var(--radius-xl); }.ai-intro h2 { font-size: var(--fs-h2); }.ai-intro ul { display: grid; gap: 10px; list-style: disc; padding-left: 20px; }</style>
+<style scoped>.ai-intro { display: grid; gap: 18px; border-radius: var(--radius-xl); }.ai-intro h2 { font-size: var(--fs-h2); line-height: 1.5; }.ai-intro ol { display: grid; gap: 10px; list-style: decimal; padding-left: 24px; }</style>

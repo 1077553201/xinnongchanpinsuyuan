@@ -123,3 +123,7 @@
   background: var(--glass-hairline);
   border: 0;
 }
+
+@media (max-width: 560px) {
+  .glass-pad, .glass-pad-lg { padding: var(--space-4); }
+}

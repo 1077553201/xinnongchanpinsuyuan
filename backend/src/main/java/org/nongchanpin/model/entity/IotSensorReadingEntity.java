@@ -7,6 +7,11 @@ import lombok.Data;
 @Data
 public class IotSensorReadingEntity {
     private Long id;
+    private Long bindingId;
+    private Long plotId;
+    private Long cycleId;
+    private String resolution;
+    private String resolutionReason;
     private Long farmId;
     private String gatewayCode;
     private String deviceCode;

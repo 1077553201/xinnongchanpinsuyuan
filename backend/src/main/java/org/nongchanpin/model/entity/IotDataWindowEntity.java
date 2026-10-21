@@ -7,6 +7,9 @@ import lombok.Data;
 @Data
 public class IotDataWindowEntity {
     private Long id;
+    private Long bindingId;
+    private Long plotId;
+    private Long cycleId;
     private Long farmId;
     private Long batchId;
     private String gatewayCode;

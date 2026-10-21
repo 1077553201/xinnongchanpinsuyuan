@@ -28,7 +28,7 @@ public interface IotDataWindowMapper {
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(IotDataWindowEntity window);
 
-    @Select("SELECT * FROM iot_data_window WHERE data_hash = #{dataHash}")
+    @Select("SELECT w.*, p.binding_id, p.plot_id, p.cycle_id FROM iot_data_window w LEFT JOIN window_provenance p ON p.window_id = w.id WHERE w.data_hash = #{dataHash}")
     IotDataWindowEntity findByDataHash(String dataHash);
 
     @Select("SELECT * FROM iot_data_window WHERE device_code = #{deviceCode} ORDER BY window_start DESC LIMIT #{limit}")

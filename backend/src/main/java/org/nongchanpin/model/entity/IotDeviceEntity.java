@@ -6,6 +6,7 @@ import lombok.Data;
 @Data
 public class IotDeviceEntity {
     private Long id;
+    private Long organizationId;
     private Long gatewayId;
     private Long farmId;
     private String gatewayCode;

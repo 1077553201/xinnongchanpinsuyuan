@@ -35,12 +35,31 @@ public class IotTelemetryService {
     private final IotAnomalyService anomalyService;
     private final IotWindowAggregationService windowAggregationService;
     private final IotProperties iotProperties;
+    private final MonitoringService monitoringService;
+    private final GrowingEnvironmentService growingEnvironment;
 
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public IotIngestResult ingest(TelemetryRequest request) {
+        return ingestInternal(request, false);
+    }
+
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    public IotIngestResult ingestMock(TelemetryRequest request) {
+        return ingestInternal(request, true);
+    }
+
+    private IotIngestResult ingestInternal(TelemetryRequest request, boolean simulated) {
         validate(request);
-        ensureGateway(request);
-        IotDeviceEntity device = ensureDevice(request);
+        IotDeviceEntity device;
+        if (simulated) {
+            device = deviceMapper.findByCode(request.getDeviceCode().trim());
+            if (device == null || gatewayMapper.findByCode(request.getGatewayCode().trim()) == null) {
+                throw new IllegalArgumentException("模拟测试前请先登记网关和设备。");
+            }
+        } else {
+            ensureGateway(request);
+            device = ensureDevice(request);
+        }
         Long batchId = resolveBatchId(request.getBatchCode());
         LocalDateTime reportedAt = request.getReportedAt() == null ? LocalDateTime.now() : request.getReportedAt();
         String metric = request.getMetric().trim().toLowerCase();
@@ -55,13 +74,23 @@ public class IotTelemetryService {
         reading.setUnit(request.getUnit());
         reading.setSignature(request.getSignature());
         reading.setReportedAt(reportedAt);
-        reading.setStatus(IotConstants.READING_STATUS_RAW);
+        reading.setStatus(simulated ? "SIMULATED" : IotConstants.READING_STATUS_RAW);
+        if (request.getReportedAt() == null) reading.setResolutionReason("MISSING_COLLECTION_TIME");
         readingMapper.insert(reading);
+        monitoringService.attribute(reading, device);
+        if (reading.getCycleId() != null && reading.getBatchId() != null) {
+            // 新种植周期尚无采收批次关系，不采信设备报文自行指定的旧批次归属。
+            readingMapper.clearUnverifiedBatch(reading.getId());
+            reading.setBatchId(null);
+        }
 
-        deviceMapper.updateLastSeen(device.getId(), reportedAt, IotConstants.DEVICE_STATUS_ACTIVE);
+        // 在线状态使用接收时间，迟到的历史样本不能把最近在线时间拨回过去。
+        if (!simulated) deviceMapper.updateLastSeen(device.getId(), LocalDateTime.now(), IotConstants.DEVICE_STATUS_ACTIVE);
 
-        List<IotAlertEntity> alerts = anomalyService.evaluate(reading);
-        IotDataWindowEntity window = windowAggregationService.aggregateForReading(reading);
+        boolean formal = !simulated && "BOUND".equals(reading.getResolution());
+        if (formal) growingEnvironment.assess(reading);
+        List<IotAlertEntity> alerts = formal ? anomalyService.evaluate(reading) : java.util.Collections.emptyList();
+        IotDataWindowEntity window = formal ? windowAggregationService.aggregateForReading(reading) : null;
 
         IotIngestResult result = new IotIngestResult();
         result.setReading(reading);

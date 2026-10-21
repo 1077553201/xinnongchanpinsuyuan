@@ -25,5 +25,7 @@ Backend tests use JUnit 5 and Mockito; name classes `*Test.java` and methods aft
 ## Commit & Pull Request Guidelines
 Existing commits use type prefixes (`docs:`, `chore:`) with concise Chinese summaries. Continue the `type: summary` pattern. PRs should describe behavior changes, link relevant issues, report validation and configuration requirements, and include screenshots for UI changes.
 
+After each requested round of changes, run appropriate checks and commit the completed changes to the local repository. Keep credentials, runtime output, and local QA artifacts ignored. Push only when requested.
+
 ## Security & Data Boundaries
 Keep secrets in environment variables or ignored `application-local.properties`; never commit private keys or certificates. Store business details and raw sensor data off-chain; preserve canonical hashes and truthful chain statuses, including `CHAIN_DISABLED`. Keep ABI, bytecode, wrappers, and integration documentation synchronized when contracts change.

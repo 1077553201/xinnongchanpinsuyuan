@@ -5,28 +5,31 @@ import GlassPanel from '@/components/GlassPanel.vue'
 import StatusChip from '@/components/StatusChip.vue'
 import ResourceState from '@/components/ResourceState.vue'
 import { useAsyncResource } from '@/composables/useAsyncResource'
+import { useAuth } from '@/composables/useAuth'
 import { chainHealthBadge } from '@/utils/chainHealth'
 import { chainHealth } from '@/api/chain'
-import { listBatches, listItems, listProducts } from '@/api/catalog'
+import { listProducts } from '@/api/catalog'
+import { listCycles, listPlots } from '@/api/production'
 import { listAlerts } from '@/api/iot'
 import { alertTypeLabel } from '@/types/iot'
 import { formatDateTime, formatNumber, metricMeta, shortHash } from '@/types/api'
 const products = useAsyncResource(listProducts)
-const batches = useAsyncResource(listBatches)
-const items = useAsyncResource(listItems)
+const auth = useAuth()
+const plots = useAsyncResource(listPlots)
+const growing = useAsyncResource(async () => (await listCycles()).filter((cycle) => cycle.status === 'ACTIVE'))
 const alerts = useAsyncResource(() => listAlerts({ limit: 6 }))
 const health = useAsyncResource(chainHealth)
 const chain = health.data
 const badge = computed(() => chainHealthBadge(chain.value))
-const resources = [products, batches, items, alerts, health]
+const resources = auth.isAdmin.value ? [products, plots, growing, alerts, health] : [products, plots, growing]
 const loading = computed(() => resources.some((resource) => resource.loading.value))
 const hasErrors = computed(() => resources.some((resource) => resource.error.value))
 const cards = [
-  { label: '产品', resource: products, to: '/admin/products', hint: '当前产品记录' },
-  { label: '批次', resource: batches, to: '/admin/products', hint: '当前批次记录' },
-  { label: '单品码', resource: items, to: '/admin/items', hint: '当前单品记录' },
+  { label: '登记地块', resource: plots, to: '/admin/production', hint: '保留历次种植来源' },
+  { label: '正在种植', resource: growing, to: '/admin/production', hint: '当前进行中的种植周期' },
+  { label: '产品档案', resource: products, to: auth.isAdmin.value ? '/admin/products' : '/admin/production', hint: '当前登记的产品资料' },
   { label: '最近告警', resource: alerts, to: '/admin/iot', hint: '最近记录，最多 6 条，含已处理' },
-]
+].filter(card => auth.isAdmin.value || card.label !== '最近告警')
 
 async function refresh() {
   await Promise.all(resources.map((resource) => resource.load()))
@@ -36,6 +39,14 @@ onMounted(refresh)
 
 <template>
   <div class="dash">
+    <GlassPanel padded="large" class="workspace-intro">
+      <div>
+        <p class="eyebrow">生产从这里开始</p>
+        <h2 class="display">照看每块地，记下每一轮生长。</h2>
+        <p class="muted">先登记地块与本轮种植，保留产品、品种和负责人档案。</p>
+      </div>
+      <div class="row wrap"><RouterLink to="/admin/production" class="action-button">地块与种植 →</RouterLink><RouterLink to="/admin/farming" class="action-button">环境与农事 →</RouterLink></div>
+    </GlassPanel>
     <div class="row-between wrap">
       <p class="muted tiny" role="status">
         {{ loading ? '正在读取最新记录…' : hasErrors ? '部分记录读取失败，可单独重试。' : '当前记录已更新。' }}
@@ -57,7 +68,7 @@ onMounted(refresh)
       </GlassPanel>
     </section>
 
-    <section class="panels">
+    <section v-if="auth.isAdmin.value" class="panels">
       <GlassPanel padded="large" class="panel">
         <header class="panel-head">
           <h2 class="panel-title display">链上节点</h2>
@@ -142,6 +153,9 @@ onMounted(refresh)
   flex-direction: column;
   gap: var(--space-4);
 }
+.workspace-intro { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 24px; }
+.workspace-intro h2 { font-size: clamp(1.3rem, 2vw, 1.8rem); line-height: 1.4; margin: 10px 0; }
+.workspace-intro p:last-child { font-size: var(--fs-sm); }
 
 .tiles {
   display: grid;

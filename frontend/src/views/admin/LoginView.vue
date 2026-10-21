@@ -1,6 +1,29 @@
 <script setup lang="ts">
-import { RouterLink } from 'vue-router'
+import { ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import GlassPanel from '@/components/GlassPanel.vue'
+import ThemeSwitcher from '@/components/ThemeSwitcher.vue'
+import { useAuth } from '@/composables/useAuth'
+import { ApiError } from '@/api/http'
+const route = useRoute()
+const router = useRouter()
+const auth = useAuth()
+const username = ref('')
+const password = ref('')
+const busy = ref(false)
+const error = ref(route.query.unavailable ? '暂时无法连接服务，请稍后重试。' : '')
+async function submit() {
+  if (busy.value) return
+  busy.value = true; error.value = ''
+  try {
+    await auth.login(username.value.trim(), password.value)
+    password.value = ''
+    const redirect = typeof route.query.redirect === 'string' && /^\/admin(?:[/?]|$)/.test(route.query.redirect) ? route.query.redirect : '/admin'
+    await router.replace(redirect)
+  } catch (cause) {
+    error.value = cause instanceof ApiError && ['400', '401', '429'].includes(cause.code) ? cause.message : '暂时无法登录，请检查服务后重试。'
+  } finally { busy.value = false }
+}
 </script>
 
 <template>
@@ -9,35 +32,34 @@ import GlassPanel from '@/components/GlassPanel.vue'
       <div class="brand">
         <span class="brand-mark" aria-hidden="true">溯</span>
         <div>
-          <h1 class="title display">农产品可信溯源</h1>
+          <h1 class="title display">农产管理与溯源</h1>
           <p class="eyebrow">AgriTrace Console</p>
         </div>
       </div>
 
       <p class="lede">
-        当前为本地研发运行环境，账号登录尚未启用。
+        登录后管理地块、种植与环境监测。消费者扫码查询无需登录。
       </p>
 
-      <div class="fields">
+      <form class="fields" @submit.prevent="submit">
         <label class="field">
           <span class="field-label">账号</span>
-          <input class="field-input" type="text" placeholder="尚未开放" disabled />
+          <input v-model.trim="username" class="field-input" type="text" name="username" autocomplete="username" required maxlength="64" :disabled="busy" />
         </label>
         <label class="field">
           <span class="field-label">密码</span>
-          <input class="field-input" type="password" placeholder="尚未开放" disabled />
+          <input v-model="password" class="field-input" type="password" name="password" autocomplete="current-password" required maxlength="128" :disabled="busy" />
         </label>
-      </div>
-
-      <button class="primary" type="button" disabled>登录</button>
+        <p v-if="error" class="field-error" role="alert">{{ error }}</p>
+        <button class="primary" type="submit" :disabled="busy">{{ busy ? '正在登录…' : '登录' }}</button>
+      </form>
 
       <p class="note">
-        当前通过开发入口使用后台。账号校验与权限管理将在独立阶段接入，
-        这里暂时不能提交账号或密码。
+        账号由管理员分配。首次在本机使用时，请查看本地初始化凭据文件，登录后在“账号与权限”修改密码。
       </p>
 
       <div class="links">
-        <RouterLink to="/admin" class="link">进入开发后台</RouterLink>
+        <ThemeSwitcher />
       </div>
     </GlassPanel>
   </div>

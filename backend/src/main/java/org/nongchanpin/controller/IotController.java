@@ -41,7 +41,7 @@ public class IotController {
 
     @PostMapping("/telemetry/mock")
     public CommonResponse mockTelemetry(@RequestBody TelemetryRequest request) {
-        return CommonResponse.ok(telemetryService.ingest(request));
+        return CommonResponse.ok(telemetryService.ingestMock(request));
     }
 
     @PostMapping("/gateways")
