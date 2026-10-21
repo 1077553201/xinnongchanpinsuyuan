@@ -27,6 +27,22 @@ public class InventoryService {
     private final AuditService audit;
 
     public List<WarehouseEntity> warehouses() { return inventory.warehouses(AccessContext.organization()); }
+    @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
+    public Map<String,Object> warehouseStock(Long id,String search,boolean includeEmpty,int page,int pageSize) {
+        WarehouseEntity warehouse=inventory.warehouse(id);
+        if (warehouse==null) throw new IllegalArgumentException("仓库不存在。");
+        AccessContext.checkOrganization(warehouse.getOrganizationId());
+        String term=text(search);
+        if (term.length()>128 || page<1 || pageSize<1 || pageSize>100) throw new IllegalArgumentException("搜索内容最多 128 字，页码须为正数，每页最多 100 条。");
+        Long org=warehouse.getOrganizationId();
+        long total=inventory.warehouseStockCount(id,org,term,includeEmpty);
+        long current=Math.min((long)page,Math.max(1L,(total+pageSize-1)/pageSize));
+        Map<String,Object> result=payloads.map(); result.put("warehouse",warehouse);
+        result.put("summary",inventory.warehouseSummary(id,org)); result.put("units",inventory.warehouseUnits(id,org));
+        result.put("rows",inventory.warehouseStock(id,org,term,includeEmpty,(current-1)*pageSize,pageSize));
+        result.put("total",total); result.put("page",current); result.put("pageSize",pageSize);
+        return result;
+    }
     public List<InventorySource> sources(Long cycle) { access.cycle(cycle,false); return inventory.sources(cycle); }
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public Map<String,Object> detail(Long id) {

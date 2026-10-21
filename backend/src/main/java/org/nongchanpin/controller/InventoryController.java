@@ -13,6 +13,11 @@ import org.springframework.web.bind.annotation.*;
 public class InventoryController {
     private final InventoryService inventory;
     @GetMapping("/warehouses") public CommonResponse warehouses() { return CommonResponse.ok(inventory.warehouses()); }
+    @GetMapping("/warehouses/{id}/stock") public CommonResponse warehouseStock(@PathVariable Long id,
+            @RequestParam(defaultValue="") String search,@RequestParam(defaultValue="false") boolean includeEmpty,
+            @RequestParam(defaultValue="1") int page,@RequestParam(defaultValue="20") int pageSize) {
+        return CommonResponse.ok(inventory.warehouseStock(id,search,includeEmpty,page,pageSize));
+    }
     @PostMapping("/warehouses") public CommonResponse warehouse(@Valid @RequestBody InventoryRequests.Warehouse request) { return CommonResponse.ok(inventory.createWarehouse(request)); }
     @GetMapping("/cycles/{id}/inventory") public CommonResponse sources(@PathVariable Long id) { return CommonResponse.ok(inventory.sources(id)); }
     @GetMapping("/inventory/packings/{id}") public CommonResponse detail(@PathVariable Long id) { return CommonResponse.ok(inventory.detail(id)); }
