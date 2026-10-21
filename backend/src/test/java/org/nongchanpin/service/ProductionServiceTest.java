@@ -22,7 +22,8 @@ class ProductionServiceTest {
     private final ProductionMapper mapper = mock(ProductionMapper.class);
     private final ProductMapper products = mock(ProductMapper.class);
     private final org.nongchanpin.mapper.GrowingMapper growing = mock(org.nongchanpin.mapper.GrowingMapper.class);
-    private final ProductionService service = new ProductionService(mapper, products, mock(AuditService.class), growing);
+    private final org.nongchanpin.mapper.HarvestMapper harvests = mock(org.nongchanpin.mapper.HarvestMapper.class);
+    private final ProductionService service = new ProductionService(mapper, products, mock(AuditService.class), growing, harvests);
     private final StartPlantingRequest start = new StartPlantingRequest();
     private final PlantingCycleEntity cycle = new PlantingCycleEntity();
     private final ProductEntity product = new ProductEntity();
@@ -55,6 +56,17 @@ class ProductionServiceTest {
     }
 
     @AfterEach void clearIdentity() { AccessContext.clear(); }
+
+    @Test void cannotEndWithUnreconciledHarvest() {
+        when(harvests.openHarvests(7L)).thenReturn(1);
+        EndPlantingRequest request = new EndPlantingRequest(); request.setEndedOn(LocalDate.now()); request.setReason("收尾");
+        assertThrows(IllegalArgumentException.class, () -> service.end(7L,request)); verify(mapper,never()).endCycle(any());
+    }
+    @Test void cannotEndBeforeActualHarvestDate() {
+        when(harvests.latestHarvestDate(7L)).thenReturn(LocalDate.now());
+        EndPlantingRequest request = new EndPlantingRequest(); request.setEndedOn(LocalDate.now().minusDays(1)); request.setReason("收尾");
+        assertThrows(IllegalArgumentException.class, () -> service.end(7L,request)); verify(mapper,never()).endCycle(any());
+    }
 
     @Test
     void preservesProductAndVarietySnapshotWhenStarting() {

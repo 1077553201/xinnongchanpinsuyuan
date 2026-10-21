@@ -57,6 +57,7 @@ const allNavItems = [
   { to: '/admin', label: '工作台' },
   { to: '/admin/production', label: '地块与种植' },
   { to: '/admin/farming', label: '环境与农事' },
+  { to: '/admin/harvest', label: '采收与包装' },
   { to: '/admin/monitoring', label: '监测与设备绑定' },
   { to: '/admin/products', label: '产品与批次' },
   { to: '/admin/items', label: '单品码' },
@@ -66,7 +67,7 @@ const allNavItems = [
   { to: '/admin/ai', label: 'AI 助手' },
   { to: '/admin/accounts', label: '账号与权限' },
 ]
-const navItems = computed(() => allNavItems.filter(item => auth.isAdmin.value || ['/admin', '/admin/production', '/admin/farming', '/admin/monitoring', '/admin/ai', '/admin/accounts'].includes(item.to)))
+const navItems = computed(() => allNavItems.filter(item => auth.isAdmin.value || ['/admin', '/admin/production', '/admin/farming', '/admin/harvest', '/admin/monitoring', '/admin/ai', '/admin/accounts'].includes(item.to)))
 const title = computed(() => (route.meta.title as string | undefined) ?? '')
 const eyebrow = computed(() => (route.meta.eyebrow as string | undefined) ?? '')
 </script>
@@ -98,7 +99,7 @@ const eyebrow = computed(() => (route.meta.eyebrow as string | undefined) ?? '')
 
 <style scoped>
 .console { --shell-gap: 16px; display: grid; grid-template-columns: 236px minmax(0,1fr); align-items: start; gap: var(--shell-gap); padding: var(--shell-gap); width: 100%; min-height: 100dvh; flex: 1 1 auto; }
-.sidebar { position: sticky; top: var(--shell-gap); display: flex; height: calc(100dvh - 2 * var(--shell-gap)); overflow-y: auto; overscroll-behavior: contain; padding: 24px 16px; border-radius: var(--radius-xl); }
+.sidebar { position: sticky; top: var(--shell-gap); display: flex; flex-direction: column; height: calc(100dvh - 2 * var(--shell-gap)); overflow-y: auto; overscroll-behavior: contain; padding: 24px 16px; border-radius: var(--radius-xl); }
 .main { display: flex; flex-direction: column; gap: var(--shell-gap); min-width: 0; min-height: calc(100dvh - 2 * var(--shell-gap)); }
 .topbar { position: sticky; top: var(--shell-gap); z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 88px; padding: 12px 24px; border-radius: var(--radius-lg); }
 .titles { min-width: 0; }

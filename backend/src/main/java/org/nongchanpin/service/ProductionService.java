@@ -23,6 +23,7 @@ public class ProductionService {
     private final ProductMapper products;
     private final AuditService audit;
     private final org.nongchanpin.mapper.GrowingMapper growing;
+    private final org.nongchanpin.mapper.HarvestMapper harvests;
 
     public List<Map<String, Object>> organizations() { return production.organizations(AccessContext.organization()); }
     public List<FarmPlotEntity> plots() { return production.plots(AccessContext.organization()); }
@@ -109,6 +110,9 @@ public class ProductionService {
         if (production.openBindings(id) > 0) throw new IllegalArgumentException("本轮还有正在监测的设备，请先解除绑定并安排后续监测。");
         if (growing.pendingTasks(id) > 0) throw new IllegalArgumentException("本轮还有待执行农事，请先完成或取消任务。");
         if (growing.openCases(id) > 0) throw new IllegalArgumentException("本轮还有未记录处置的环境异常，请先核对处理。");
+        if (harvests.openHarvests(id) > 0) throw new IllegalArgumentException("本轮还有未完成分级数量核对的采收批次，请先核对。");
+        LocalDate lastHarvestDate = harvests.latestHarvestDate(id);
+        if (lastHarvestDate != null && request.getEndedOn().isBefore(lastHarvestDate)) throw new IllegalArgumentException("结束日期不能早于本轮实际采收日期。");
         LocalDate lastExecutionDate = growing.latestExecutionDate(id);
         if (lastExecutionDate != null && request.getEndedOn().isBefore(lastExecutionDate)) throw new IllegalArgumentException("结束日期不能早于本轮实际农事执行日期。");
         LocalDate lastMonitoringDate = production.latestMonitoringDate(id);

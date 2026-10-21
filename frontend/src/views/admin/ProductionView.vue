@@ -186,6 +186,7 @@ async function save() {
             <p v-if="cycle.endReason" class="pre-wrap muted">结束说明：{{ cycle.endReason }}</p>
             <RouterLink :to="{ path: '/admin/monitoring', query: { cycle: cycle.id } }" class="text-button" @click="close">查看本轮监测与绑定 →</RouterLink>
             <RouterLink :to="{ path: '/admin/farming', query: { cycle: cycle.id } }" class="text-button" @click="close">查看本轮环境与农事 →</RouterLink>
+            <RouterLink :to="{ path: '/admin/harvest', query: { cycle: cycle.id } }" class="text-button" @click="close">查看本轮采收与包装 →</RouterLink>
           </li>
         </ol>
       </div>

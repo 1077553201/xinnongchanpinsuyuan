@@ -1,0 +1,62 @@
+CREATE TABLE IF NOT EXISTS harvest_lot (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    cycle_id BIGINT NOT NULL,
+    lot_code VARCHAR(64) NOT NULL UNIQUE,
+    harvested_at DATETIME NOT NULL,
+    quantity DECIMAL(15,3) NOT NULL,
+    unit VARCHAR(8) NOT NULL,
+    weight_kg DECIMAL(12,3) NOT NULL,
+    performer_name VARCHAR(128) NOT NULL,
+    notes VARCHAR(2000) NOT NULL DEFAULT '',
+    status VARCHAR(16) NOT NULL DEFAULT 'OPEN',
+    recorded_by BIGINT NOT NULL,
+    recorder_name VARCHAR(128) NOT NULL,
+    recorded_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    request_key VARCHAR(36) NOT NULL UNIQUE,
+    request_hash VARCHAR(64) NOT NULL,
+    CONSTRAINT fk_harvest_cycle FOREIGN KEY (cycle_id) REFERENCES planting_cycle(id),
+    CONSTRAINT chk_harvest_weight CHECK (weight_kg > 0),
+    INDEX idx_harvest_cycle (cycle_id, status, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS harvest_grade (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    harvest_id BIGINT NOT NULL,
+    kind VARCHAR(16) NOT NULL,
+    grade_name VARCHAR(128) NOT NULL,
+    weight_kg DECIMAL(12,3) NOT NULL,
+    handled_at DATETIME NOT NULL,
+    performer_name VARCHAR(128) NOT NULL,
+    location VARCHAR(256) NOT NULL DEFAULT '',
+    reason VARCHAR(1000) NOT NULL DEFAULT '',
+    recorded_by BIGINT NOT NULL,
+    recorder_name VARCHAR(128) NOT NULL,
+    recorded_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    request_key VARCHAR(36) NOT NULL UNIQUE,
+    request_hash VARCHAR(64) NOT NULL,
+    CONSTRAINT fk_grade_harvest FOREIGN KEY (harvest_id) REFERENCES harvest_lot(id),
+    CONSTRAINT chk_grade_weight CHECK (weight_kg > 0),
+    INDEX idx_grade_harvest (harvest_id, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS packing_lot (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    grade_id BIGINT NOT NULL,
+    packing_code VARCHAR(64) NOT NULL UNIQUE,
+    packed_at DATETIME NOT NULL,
+    package_count INT NOT NULL,
+    package_unit VARCHAR(32) NOT NULL,
+    net_weight_kg DECIMAL(12,3) NOT NULL,
+    total_weight_kg DECIMAL(12,3) NOT NULL,
+    performer_name VARCHAR(128) NOT NULL,
+    location VARCHAR(256) NOT NULL,
+    notes VARCHAR(2000) NOT NULL DEFAULT '',
+    recorded_by BIGINT NOT NULL,
+    recorder_name VARCHAR(128) NOT NULL,
+    recorded_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    request_key VARCHAR(36) NOT NULL UNIQUE,
+    request_hash VARCHAR(64) NOT NULL,
+    CONSTRAINT fk_packing_grade FOREIGN KEY (grade_id) REFERENCES harvest_grade(id),
+    CONSTRAINT chk_packing_weight CHECK (package_count > 0 AND net_weight_kg > 0 AND total_weight_kg > 0),
+    INDEX idx_packing_grade (grade_id, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
