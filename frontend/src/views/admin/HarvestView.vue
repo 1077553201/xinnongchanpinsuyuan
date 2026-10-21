@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import GlassPanel from '@/components/GlassPanel.vue'
 import ResourceState from '@/components/ResourceState.vue'
 import AppDialog from '@/components/AppDialog.vue'
@@ -90,7 +90,7 @@ async function save() {
           <div v-else class="table-scroll"><table class="data-table"><thead><tr><th>类型 / 等级 / 重量</th><th>待包装 / 位置</th><th>实际时间 / 人员</th><th>原因 / 录入</th></tr></thead><tbody><tr v-for="grade in detail.data.value?.grades" :key="grade.id"><td>{{ grade.kind === 'LOSS' ? '损耗' : '可用等级' }} · {{ grade.gradeName }}<p>{{ kg(grade.weightKg) }} kg</p></td><td>{{ grade.kind === 'LOSS' ? '不可用于包装' : `${kg(grade.weightKg - grade.packedKg)} kg` }}<p>{{ grade.location || '—' }}</p></td><td>{{ formatDateTime(grade.handledAt) }}<p>{{ grade.performerName }}</p></td><td class="pre-wrap">{{ grade.reason || '未填写' }}<p class="muted">{{ grade.recorderName }} · {{ formatDateTime(grade.recordedAt) }}</p></td></tr></tbody></table></div>
           <h3 class="display">实际包装 · 最近 200 批</h3><p class="muted small">一批包装仅来自一个采收等级；箱、袋等数量按实际单件净重核算。包装保存不等于入库、销售、赋码或已上链。</p>
           <p v-if="!detail.data.value?.packings.length" class="muted">尚无实际包装记录。</p>
-          <div v-else class="table-scroll"><table class="data-table"><thead><tr><th>包装批次 / 来源等级</th><th>件数 × 单件净重</th><th>实际时间 / 人员</th><th>存放位置 / 说明</th></tr></thead><tbody><tr v-for="pack in detail.data.value?.packings" :key="pack.id"><td>{{ pack.packingCode }}<p>{{ pack.gradeName }} · 来源 #{{ pack.gradeId }}</p></td><td>{{ pack.packageCount }} {{ pack.packageUnit }} × {{ kg(pack.netWeightKg) }} kg<p>合计 {{ kg(pack.totalWeightKg) }} kg</p></td><td>{{ formatDateTime(pack.packedAt) }} · {{ pack.performerName }}<p class="muted">录入 {{ pack.recorderName }} · {{ formatDateTime(pack.recordedAt) }}</p></td><td class="pre-wrap">{{ pack.location }}<p>{{ pack.notes || '未填写说明' }}</p></td></tr></tbody></table></div>
+          <div v-else class="table-scroll"><table class="data-table"><thead><tr><th>包装批次 / 来源等级</th><th>件数 × 单件净重</th><th>实际时间 / 人员</th><th>存放位置 / 说明</th></tr></thead><tbody><tr v-for="pack in detail.data.value?.packings" :key="pack.id"><td>{{ pack.packingCode }}<p><RouterLink :to="{ path: '/admin/inventory', query: { cycle: cycle.id, packing: pack.id } }" class="text-button">查看库存与办理 →</RouterLink></p><p>{{ pack.gradeName }} · 来源 #{{ pack.gradeId }}</p></td><td>{{ pack.packageCount }} {{ pack.packageUnit }} × {{ kg(pack.netWeightKg) }} kg<p>合计 {{ kg(pack.totalWeightKg) }} kg</p></td><td>{{ formatDateTime(pack.packedAt) }} · {{ pack.performerName }}<p class="muted">录入 {{ pack.recorderName }} · {{ formatDateTime(pack.recordedAt) }}</p></td><td class="pre-wrap">{{ pack.location }}<p>{{ pack.notes || '未填写说明' }}</p></td></tr></tbody></table></div>
         </template>
       </ResourceState>
     </GlassPanel>

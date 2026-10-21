@@ -55,6 +55,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '采收与包装', eyebrow: 'Harvest & packing' },
       },
       {
+        path: 'inventory',
+        name: 'admin-inventory',
+        component: () => import('@/views/admin/InventoryView.vue'),
+        meta: { title: '库存台账', eyebrow: 'Stock & movements' },
+      },
+      {
         path: 'monitoring',
         name: 'admin-monitoring',
         component: () => import('@/views/admin/MonitoringView.vue'),
@@ -125,7 +131,7 @@ router.beforeEach(async to => {
   try {
     if (!await auth.restore()) return { path: '/login', query: { redirect: to.fullPath } }
   } catch { return { path: '/login', query: { unavailable: '1', redirect: to.fullPath } } }
-  if (!auth.isAdmin.value && !['/admin', '/admin/production', '/admin/farming', '/admin/harvest', '/admin/monitoring', '/admin/accounts', '/admin/ai'].includes(to.path)) return '/admin/production'
+  if (!auth.isAdmin.value && !['/admin', '/admin/production', '/admin/farming', '/admin/harvest', '/admin/inventory', '/admin/monitoring', '/admin/accounts', '/admin/ai'].includes(to.path)) return '/admin/production'
   return true
 })
 export default router

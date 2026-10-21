@@ -10,6 +10,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public CommonResponse handleMalformedRequest(org.springframework.http.converter.HttpMessageNotReadableException ex) {
+        return new CommonResponse("400", "请求格式不正确，请检查日期、数字及整数件数。", null);
+    }
     @ExceptionHandler(javax.validation.ConstraintViolationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public CommonResponse handleConstraint(javax.validation.ConstraintViolationException ex) {
