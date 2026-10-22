@@ -8,6 +8,8 @@ import org.nongchanpin.model.entity.PlantingCycleEntity;
 
 @Mapper
 public interface ProductionMapper {
+    @Select("SELECT c.id,CONCAT_WS(' · ',p.plot_name,c.cycle_code,c.product_name,c.variety) AS label FROM planting_cycle c JOIN farm_plot p ON p.id=c.plot_id WHERE c.status='ACTIVE' AND (#{org} IS NULL OR p.organization_id=#{org}) AND (#{search}='' OR LOCATE(#{search},CONCAT_WS(' ',p.plot_name,c.cycle_code,c.product_name,c.variety))>0) ORDER BY c.id DESC LIMIT 50")
+    List<Map<String,Object>> agentCycles(@Param("org")Long org,@Param("search")String search);
     @Select("SELECT id, org_name AS name FROM sys_organization WHERE status = 'ACTIVE' "
             + "AND (#{orgId} IS NULL OR id = #{orgId}) ORDER BY id")
     List<Map<String, Object>> organizations(@Param("orgId") Long orgId);
