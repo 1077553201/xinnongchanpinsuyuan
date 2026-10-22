@@ -55,7 +55,7 @@ public interface InventoryMapper {
             + "SUM(CASE WHEN m.kind='IN' THEN m.package_count ELSE -m.package_count END) AS available_count "
             + "FROM inventory_movement m JOIN inventory_warehouse w ON w.id=m.warehouse_id WHERE m.packing_id=#{id} GROUP BY w.id,w.warehouse_code,w.warehouse_name,w.location ORDER BY available_count DESC,w.id")
     List<InventoryPosition> positions(Long id);
-    @Select("SELECT m.*,w.warehouse_name FROM inventory_movement m JOIN inventory_warehouse w ON w.id=m.warehouse_id WHERE m.packing_id=#{id} ORDER BY m.occurred_at DESC,m.id DESC LIMIT 200")
+    @Select("SELECT m.*,w.warehouse_name,o.id AS sales_order_id,o.order_code AS sales_order_code FROM inventory_movement m JOIN inventory_warehouse w ON w.id=m.warehouse_id LEFT JOIN sales_dispatch d ON d.movement_id=m.id LEFT JOIN sales_order_line l ON l.id=d.line_id LEFT JOIN sales_order o ON o.id=l.order_id WHERE m.packing_id=#{id} ORDER BY m.occurred_at DESC,m.id DESC LIMIT 200")
     List<InventoryMovementEntity> movements(Long id);
     @Select("SELECT * FROM inventory_movement WHERE request_key=#{key}") InventoryMovementEntity byRequest(String key);
     @Select("SELECT m.*,w.warehouse_name FROM inventory_movement m JOIN inventory_warehouse w ON w.id=m.warehouse_id WHERE m.id=#{id}") InventoryMovementEntity movement(Long id);

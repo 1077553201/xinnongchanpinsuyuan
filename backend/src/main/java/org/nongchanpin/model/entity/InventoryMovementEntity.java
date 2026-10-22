@@ -23,6 +23,8 @@ public class InventoryMovementEntity {
     private Long recordedBy;
     private String recorderName;
     private LocalDateTime recordedAt;
+    private Long salesOrderId;
+    private String salesOrderCode;
     @com.fasterxml.jackson.annotation.JsonIgnore private String requestKey;
     @com.fasterxml.jackson.annotation.JsonIgnore private String requestHash;
 }

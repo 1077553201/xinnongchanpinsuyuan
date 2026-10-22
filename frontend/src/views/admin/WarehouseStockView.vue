@@ -5,10 +5,12 @@ import GlassPanel from '@/components/GlassPanel.vue'
 import ResourceState from '@/components/ResourceState.vue'
 import InventoryViewTabs from '@/components/InventoryViewTabs.vue'
 import { useAsyncResource } from '@/composables/useAsyncResource'
+import { useAuth } from '@/composables/useAuth'
 import { listWarehouses, warehouseStock } from '@/api/inventory'
 import { formatDateTime } from '@/types/api'
 
 const route = useRoute(), router = useRouter()
+const auth = useAuth()
 const warehouses = useAsyncResource(listWarehouses)
 const warehouseId = computed(() => Number(route.params.warehouseId) || 0)
 const selected = ref(String(warehouseId.value || ''))
@@ -49,7 +51,7 @@ onMounted(async () => { await warehouses.load(); await load() })
         <form class="filters" @submit.prevent="filter"><label>搜索货物与来源<input v-model="search" class="field-input" maxlength="128" placeholder="产品、品种、地块、批次或等级"></label><label>每页条数<select v-model.number="pageSize" class="field-input" @change="filter"><option :value="20">20 条</option><option :value="50">50 条</option><option :value="100">100 条</option></select></label><button class="action-button" type="submit" :disabled="stock.loading.value">查询本仓货物</button></form>
         <label class="include-empty"><input v-model="includeEmpty" type="checkbox" @change="filter">同时显示本仓已清空的历史批次</label>
         <ResourceState :loading="stock.loading.value" :error="stock.error.value" :empty="!stock.data.value?.rows.length" :empty-text="appliedSearch ? '未找到匹配货物，可调整搜索或显示已清空批次。' : includeEmpty ? '本仓尚无货物入库记录。' : '本仓目前没有在库货物，可查看已清空的历史批次。'" @retry="load">
-          <div class="table-scroll"><table class="data-table"><thead><tr><th>货物 / 包装批次</th><th>等级 / 包装规格</th><th>本仓余量 / 净重</th><th>地块 / 种植与采收来源</th><th>最近办理 / 操作</th></tr></thead><tbody><tr v-for="item in stock.data.value?.rows" :key="item.id"><td>{{ item.productName }} · {{ item.variety }}<p class="mono">{{ item.packingCode }}</p></td><td>{{ item.gradeName }}<p>{{ kg(item.netWeightKg) }} kg / {{ item.packageUnit }}</p></td><td><strong>{{ item.availableCount }} {{ item.packageUnit }}</strong><p>{{ kg(item.availableWeightKg) }} kg</p><p class="muted">本仓入 {{ item.receivedCount }} · 出 {{ item.dispatchedCount }} · 损耗 {{ item.lossCount }}</p></td><td>{{ item.plotName }}<p>{{ item.cycleCode }}</p><p class="mono">{{ item.harvestCode }}</p></td><td>{{ formatDateTime(item.lastMovementAt) }}<p><RouterLink :to="{ path: '/admin/inventory', query: { cycle: item.cycleId, packing: item.id, warehouse: warehouseId } }" class="text-button">来源与出入库 →</RouterLink></p></td></tr></tbody></table></div>
+          <div class="table-scroll"><table class="data-table"><thead><tr><th>货物 / 包装批次</th><th>等级 / 包装规格</th><th>本仓余量 / 净重</th><th>地块 / 种植与采收来源</th><th>最近办理 / 操作</th></tr></thead><tbody><tr v-for="item in stock.data.value?.rows" :key="item.id"><td>{{ item.productName }} · {{ item.variety }}<p class="mono">{{ item.packingCode }}</p></td><td>{{ item.gradeName }}<p>{{ kg(item.netWeightKg) }} kg / {{ item.packageUnit }}</p></td><td><strong>{{ item.availableCount }} {{ item.packageUnit }}</strong><p>{{ kg(item.availableWeightKg) }} kg</p><p class="muted">本仓入 {{ item.receivedCount }} · 出 {{ item.dispatchedCount }} · 损耗 {{ item.lossCount }}</p></td><td>{{ item.plotName }}<p>{{ item.cycleCode }}</p><p class="mono">{{ item.harvestCode }}</p></td><td>{{ formatDateTime(item.lastMovementAt) }}<p><RouterLink :to="{ path: '/admin/inventory', query: { cycle: item.cycleId, packing: item.id, warehouse: warehouseId } }" class="text-button">来源与出入库 →</RouterLink></p><p v-if="auth.canWrite.value && item.availableCount > 0"><RouterLink :to="{ path: '/admin/sales', query: { packing: item.id, warehouse: warehouseId } }" class="text-button">建立销售订单 →</RouterLink></p></td></tr></tbody></table></div>
         </ResourceState>
         <div v-if="stock.data.value" class="section-head"><p class="muted small">匹配 {{ stock.data.value.total }} 批 · 第 {{ stock.data.value.page }} / {{ pages }} 页</p><div class="actions"><button class="action-button" :disabled="stock.loading.value || stock.data.value.page <= 1" @click="turn((stock.data.value?.page ?? 1) - 1)">上一页</button><button class="action-button" :disabled="stock.loading.value || stock.data.value.page >= pages" @click="turn((stock.data.value?.page ?? 1) + 1)">下一页</button></div></div>
       </GlassPanel>

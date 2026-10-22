@@ -16,6 +16,7 @@ export interface InventoryMovement {
   id: number; packingId: number; warehouseId: number; warehouseName: string; movementCode: string; kind: 'IN' | 'OUT' | 'LOSS'
   packageCount: number; packageUnit: string; weightKg: number; occurredAt: string; performerName: string
   destination?: string; reason: string; reference?: string; recorderName: string; recordedAt: string
+  salesOrderId?: number; salesOrderCode?: string
 }
 export interface InventoryDetail { source: InventorySource; positions: InventoryPosition[]; movements: InventoryMovement[] }
 export interface NewWarehouse { organizationId: number; warehouseCode: string; warehouseName: string; location: string; notes: string }

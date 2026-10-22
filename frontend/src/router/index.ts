@@ -61,6 +61,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '库存台账', eyebrow: 'Stock & movements' },
       },
       {
+        path: 'sales',
+        name: 'admin-sales',
+        component: () => import('@/views/admin/SalesView.vue'),
+        meta: { title: '销售订单', eyebrow: 'Sales & dispatch' },
+      },
+      {
         path: 'inventory/warehouse/:warehouseId?',
         name: 'admin-warehouse-stock',
         component: () => import('@/views/admin/WarehouseStockView.vue'),
@@ -137,7 +143,7 @@ router.beforeEach(async to => {
   try {
     if (!await auth.restore()) return { path: '/login', query: { redirect: to.fullPath } }
   } catch { return { path: '/login', query: { unavailable: '1', redirect: to.fullPath } } }
-  if (!auth.isAdmin.value && to.name !== 'admin-warehouse-stock' && !['/admin', '/admin/production', '/admin/farming', '/admin/harvest', '/admin/inventory', '/admin/monitoring', '/admin/accounts', '/admin/ai'].includes(to.path)) return '/admin/production'
+  if (!auth.isAdmin.value && to.name !== 'admin-warehouse-stock' && !['/admin', '/admin/production', '/admin/farming', '/admin/harvest', '/admin/inventory', '/admin/sales', '/admin/monitoring', '/admin/accounts', '/admin/ai'].includes(to.path)) return '/admin/production'
   return true
 })
 export default router
