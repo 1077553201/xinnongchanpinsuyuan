@@ -25,7 +25,10 @@ public class AgentReadTools {
         Long target=input.path("targetId").isIntegralNumber()?input.get("targetId").longValue():null;Object rows;String link;
         switch(kind) {
             case "PLOTS":rows=target==null?chats.plots(AccessContext.organization(),search):chats.plotById(AccessContext.organization(),target);link="/admin/production";break;
-            case "CYCLES":rows=target==null?chats.cycles(AccessContext.organization(),search):chats.cycleById(AccessContext.organization(),target);link="/admin/production";break;
+            case "CYCLES":
+                String cycleStatus=input.path("status").asText("");
+                if(!Set.of("","ACTIVE","ENDED").contains(cycleStatus))throw new IllegalArgumentException("种植状态只能为在种或已结束。");
+                rows=target==null?(cycleStatus.isEmpty()?chats.cycles(AccessContext.organization(),search):chats.cyclesFiltered(AccessContext.organization(),search,cycleStatus)):chats.cycleById(AccessContext.organization(),target);link="/admin/production";break;
             case "WAREHOUSES":rows=chats.warehouses(AccessContext.organization(),search);link="/admin/inventory";break;
             case "STOCK":
                 positive(target);Map<String,Object> stock=inventory.warehouseStock(target,search,false,1,10);
