@@ -8,6 +8,7 @@ import lombok.Data;
 public class SalesDispatchEntity {
     private Long id;
     private Long lineId;
+    private Long shipmentId;
     private Long movementId;
     @com.fasterxml.jackson.annotation.JsonIgnore private String requestKey;
     @com.fasterxml.jackson.annotation.JsonIgnore private String requestHash;

@@ -17,7 +17,7 @@ public interface SalesMapper {
     @Select(LINE_VIEW+"WHERE l.order_id=#{id} ORDER BY l.id") List<SalesLineEntity> lines(Long id);
     @Select(LINE_VIEW+"WHERE l.id=#{id}") SalesLineEntity line(Long id);
     @Select("SELECT order_id FROM sales_order_line WHERE id=#{id}") Long lineOrderId(Long id);
-    String DISPATCH_VIEW="SELECT d.*,m.movement_code,m.package_count,m.package_unit,m.weight_kg,m.occurred_at,m.performer_name,m.recorder_name,m.recorded_at,m.reason,m.reference FROM sales_dispatch d JOIN inventory_movement m ON m.id=d.movement_id ";
+    String DISPATCH_VIEW="SELECT d.*,(SELECT t.id FROM transport_shipment t WHERE t.dispatch_id=d.id) AS shipment_id,m.movement_code,m.package_count,m.package_unit,m.weight_kg,m.occurred_at,m.performer_name,m.recorder_name,m.recorded_at,m.reason,m.reference FROM sales_dispatch d JOIN inventory_movement m ON m.id=d.movement_id ";
     @Select(DISPATCH_VIEW+"JOIN sales_order_line l ON l.id=d.line_id WHERE l.order_id=#{id} ORDER BY d.id DESC LIMIT 200") List<SalesDispatchEntity> dispatches(Long id);
     @Select(DISPATCH_VIEW+"WHERE d.id=#{id}") SalesDispatchEntity dispatch(Long id);
     @Select("SELECT * FROM sales_dispatch WHERE request_key=#{key}") SalesDispatchEntity dispatchByRequest(String key);
