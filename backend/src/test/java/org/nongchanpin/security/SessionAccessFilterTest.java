@@ -66,4 +66,11 @@ class SessionAccessFilterTest {
         assertFalse(Passwords.matches("wrong", first));
         assertFalse(Passwords.matches("wrong", "plaintext"));
     }
+    @Test void viewerCanUsePersonalChatWithCsrfButCannotConfirmBusiness() throws Exception {
+        for(String path:new String[]{"/api/production/chat/conversations","/api/production/chat/conversations/7/messages"}) {
+            MockHttpServletRequest request=request("POST",path,"VIEWER");request.addHeader("X-Requested-With","XMLHttpRequest");request.addHeader("X-CSRF-Token","expected");AtomicBoolean called=new AtomicBoolean();filter.doFilter(request,new MockHttpServletResponse(),(req,res)->called.set(true));assertTrue(called.get());
+        }
+        MockHttpServletRequest request=request("POST","/api/production/agent/reports/7/confirm","VIEWER");request.addHeader("X-Requested-With","XMLHttpRequest");request.addHeader("X-CSRF-Token","expected");MockHttpServletResponse response=new MockHttpServletResponse();filter.doFilter(request,response,(req,res)->fail("business write must remain forbidden"));assertEquals(403,response.getStatus());
+    }
+    @Test void chatStillRequiresCsrf() throws Exception {MockHttpServletRequest request=request("POST","/api/production/chat/conversations/7/messages","VIEWER");request.addHeader("X-Requested-With","XMLHttpRequest");MockHttpServletResponse response=new MockHttpServletResponse();filter.doFilter(request,response,(req,res)->fail("must reject"));assertEquals(403,response.getStatus());}
 }

@@ -55,6 +55,25 @@ public class AgentService {
             mapper.revision(id,r.getVersion()+1,write(request.getOperations()),AccessContext.require().getId());mapper.advance(id);audit.record("AGENT_REVISE","AGENT_REPORT",id,"版本 "+(r.getVersion()+1));return mapper.report(id);
         });
     }
+    public Report saveChatProposal(String source,java.time.LocalDate date,String key,List<Operation> operations) {
+        AccessContext.write();
+        if(!org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())throw new IllegalStateException("对话清单必须与回复在同一事务保存。");
+        if(source.length()>12000||operations.isEmpty()||operations.size()>20)throw new IllegalArgumentException("操作单范围无效。");
+        String hash=hashes.requestHash(Map.of("actor",AccessContext.require().getId(),"date",date,"text",source));
+        Report prior=mapper.byKey(key);if(prior!=null){checkOwner(prior.getId());same(hash,prior.getSourceHash());return prior;}
+        prior=mapper.bySource(AccessContext.require().getId(),hash);if(prior!=null)return prior;
+        for(Operation op:operations){if(op.getQuote()==null||op.getQuote().isBlank()||!source.contains(op.getQuote()))throw new IllegalArgumentException("操作原文引用无效。");tools.prepare(op);}
+        Report report=new Report();report.setOwnerId(AccessContext.require().getId());report.setSourceText(source);report.setReportDate(date);report.setSourceHash(hash);report.setRequestKey(key);report.setMode("MODEL");
+        mapper.insert(report);mapper.revision(report.getId(),1,write(operations),AccessContext.require().getId());audit.record("CHAT_PROPOSAL","AGENT_REPORT",report.getId(),"对话生成 / 待确认");return report;
+    }
+    public void supersedeChatProposal(Long oldId,Long replacement,int itemCount) {
+        AccessContext.write();if(!org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())throw new IllegalStateException("替代操作单必须与对话同事务保存。");
+        Report old=require(oldId,true);if(!"READY".equals(old.getStatus()))throw new IllegalArgumentException("原操作单正在执行或已被替代，请先核对原记录。");
+        List<Operation> operations=plan(oldId,old.getVersion());
+        if(operations.size()!=itemCount)throw new IllegalArgumentException("原清单包含其他事项，请打开原操作单逐项修改，避免遗漏。");
+        for(Operation op:operations)if(mapper.success(oldId,op.getId())!=null)throw new IllegalArgumentException("原操作单已有成功记录，不能通过对话覆盖；请按更正流程保留事实。");
+        checkOwner(replacement);mapper.status(oldId,"SUPERSEDED");audit.record("CHAT_SUPERSEDE","AGENT_REPORT",oldId,"被操作单 #"+replacement+" 替代");
+    }
     public Map<String,Object> confirm(Long id,AgentRequests.Confirm request) {
         AccessContext.write();Confirmation confirmation=tx.execute(s->start(id,request));
         if("COMPLETED".equals(confirmation.getStatus()))return detail(id);
@@ -76,6 +95,7 @@ public class AgentService {
     private Confirmation start(Long id,AgentRequests.Confirm request) {
         Report r=require(id,true);String hash=hashes.requestHash(Map.of("report",id,"version",request.getVersion(),"scope",request.getOperationIds(),"actor",AccessContext.require().getId()));
         Confirmation previous=mapper.confirmationByKey(request.getRequestKey());if(previous!=null){same(hash,previous.getRequestHash());return previous;}
+        if("SUPERSEDED".equals(r.getStatus()))throw new IllegalArgumentException("该操作单已被后续清单替代，请核对较新的操作单。");
         if(!"READY".equals(r.getStatus()))throw new IllegalArgumentException("有未完成确认，请用原确认恢复，不能另起一轮执行。");
         if(!r.getVersion().equals(request.getVersion()))throw new IllegalArgumentException("确认版本已过期，请刷新后重新核对。");
         Set<String> selected=new HashSet<>(request.getOperationIds());if(selected.size()!=request.getOperationIds().size())throw new IllegalArgumentException("确认事项不能重复。");

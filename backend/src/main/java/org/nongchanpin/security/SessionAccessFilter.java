@@ -48,7 +48,7 @@ public class SessionAccessFilter extends OncePerRequestFilter {
                 if (expected == null || supplied == null || !MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), supplied.getBytes(StandardCharsets.UTF_8))) {
                     throw new AccessException(403, "请求校验已失效，请刷新页面后重试。");
                 }
-                if (!path.startsWith("/api/auth/")) AccessContext.write();
+                if (!path.startsWith("/api/auth/") && !path.matches("/api/production/chat/conversations(?:/[0-9]+/messages)?")) AccessContext.write();
             }
             if (!path.startsWith("/api/auth/") && !path.startsWith("/api/production/")
                     && !path.equals("/api/products") && !path.matches("/api/products/[0-9]+")) AccessContext.admin();
