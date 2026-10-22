@@ -68,6 +68,8 @@ mvn test
 
 ## 尚需独立完成
 
+当前剩余任务与下一轮推进顺序见 [下一阶段优化计划](docs/NEXT_OPTIMIZATION_PLAN.md)：逐项对应原阶段 0–5，区分核心未完成、按试点确定与后续扩展，并列出依赖及验收条件。下一轮优先贯通包装来源、赋码和完整公众溯源。
+
 业务方向与分期见 [生产到销售及 Agent 规划](docs/PRODUCTION_TO_SALES_AGENT_PLAN.md)。本轮新增地块登记、种植周期开启/结束和历史档案，管理台顶部可切换“晨光绿 / 柔光玻璃”，外观选择保存在本机浏览器。
 
 已有数据库升级时，执行 `database/migrations/001_production_foundation.sql`，仅新增 `farm_plot`、`planting_cycle`，不重新执行示例数据。新环境的 `database/schema.sql` 已包含这两张表。也可在仓库根目录用现有 MySQL JDBC 驱动运行：
