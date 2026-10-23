@@ -27,6 +27,9 @@ export function traceVerdict(value?: TraceChainVerification): TraceVerdict {
   if (statuses.includes('PENDING')) {
     return { tone: 'wait', headline: '等待上链确认', sealChar: '待', detail: '部分交易仍待确认，请稍后重新查询。' }
   }
+  if (statuses.includes('NOT_SUBMITTED')) {
+    return { tone: 'off', headline: '来源尚未提交存证', sealChar: '未', detail: '当前可查询已登记的包装来源；尚未提交链上存证，不能认定已完成链上核验。' }
+  }
   if (value.verificationSource !== 'LIVE_CHAIN') {
     return { tone: 'off', headline: '链上核验暂不可用', sealChar: '待', detail: '未完成本次链上摘要读取，请稍后重新查询。保存的交易记录仍可供查看。' }
   }

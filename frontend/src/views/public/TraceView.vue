@@ -131,11 +131,11 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
           <div class="hero-text">
             <p class="eyebrow">溯源编号</p>
             <p class="mono code">{{ traceCode }}</p>
-            <h1 class="hero-title display">{{ product?.productName || '未命名产品' }}</h1>
+            <h1 class="hero-title display">{{ trace.productionSource?.productName || product?.productName || '未命名产品' }}</h1>
             <p class="hero-sub">
-              <span>{{ product?.originPlace || '产地未记录' }}</span>
-              <span v-if="product?.variety" class="dot-sep">·</span>
-              <span v-if="product?.variety">{{ product.variety }}</span>
+              <span>{{ trace.productionSource?.plotName || product?.originPlace || '产地未记录' }}</span>
+              <span v-if="trace.productionSource?.variety || product?.variety" class="dot-sep">·</span>
+              <span v-if="trace.productionSource?.variety || product?.variety">{{ trace.productionSource?.variety || product?.variety }}</span>
             </p>
           </div>
           <VerifySeal :assessment="sealAssessment" label="农产品可信溯源 · 记录核对" :size="104" />
@@ -161,6 +161,12 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
         </ul>
       </GlassPanel>
 
+      <GlassPanel v-if="trace.productionSource" padded="large" class="production-source">
+        <p class="eyebrow">包装生产来源</p><h2 class="display">从这块地，到这一件包装</h2>
+        <p>来源为业务登记快照，尚未提交链上存证。此处不代表完整流通过程、实物质量或设备身份已验证。</p>
+        <dl class="source-facts"><div><dt>地块 / 种植周期</dt><dd>{{ trace.productionSource.plotName }} · {{ trace.productionSource.cycleCode }}</dd></div><div><dt>产品 / 品种</dt><dd>{{ trace.productionSource.productName }} · {{ trace.productionSource.variety }}</dd></div><div><dt>种植日期</dt><dd>{{ formatDate(trace.productionSource.plantedOn) }}</dd></div><div><dt>采收 / 分级</dt><dd>{{ trace.productionSource.harvestCode }} · {{ trace.productionSource.gradeName }}<br />{{ formatDateTime(trace.productionSource.harvestedAt) }}</dd></div><div><dt>实际包装</dt><dd>{{ trace.productionSource.packingCode }}<br />{{ formatDateTime(trace.productionSource.packedAt) }}</dd></div><div><dt>每码对应</dt><dd>1 {{ trace.productionSource.packageUnit }}完整包装 · 净重 {{ trace.productionSource.netWeightKg }} kg</dd></div></dl>
+        <p class="source-hash">来源快照摘要：{{ trace.productionSource.sourceHash }}</p>
+      </GlassPanel>
       <GlassPanel :class="`verdict tone-${verdict.tone}`">
         <div class="verdict-main">
           <p class="verdict-headline">{{ verdict.headline }}</p>
@@ -600,4 +606,8 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
 .sk-block {
   height: 96px;
 }
+</style>
+
+<style scoped>
+.production-source h2 { margin: 12px 0; font-size: var(--fs-h2); }.production-source > p { line-height: 1.8; color: var(--slate); }.source-facts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; margin: 22px 0; }.source-facts dt { color: var(--slate); font-size: var(--fs-xs); margin-bottom: 6px; }.source-facts dd { margin: 0; overflow-wrap: anywhere; line-height: 1.8; }.source-hash { overflow-wrap: anywhere; font-size: 11px; }@media(max-width:600px) { .source-facts { grid-template-columns: minmax(0,1fr); } }
 </style>

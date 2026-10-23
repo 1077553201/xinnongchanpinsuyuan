@@ -55,6 +55,7 @@ public class PublicTraceQueryService {
         view.setProduct(toProduct(product));
         view.setBatch(toBatch(batch));
         view.setItem(toItem(item));
+        view.setProductionSource(PackingTraceService.publicSource(traceItemMapper.packingSource(item.getId())));
         view.setNfc(toNfc(nfc));
         view.setTimeline(toEvents(events));
         view.setQualityReports(toQualities(qualityReportMapper.findForTrace(item.getId(), item.getBatchId())));
@@ -64,7 +65,7 @@ public class PublicTraceQueryService {
         if (batch != null && product != null) expected.put("BATCH_REGISTER", recomputeBatchPayloadHash(product, batch));
         expected.put("ITEM_BIND", recomputeItemPayloadHash(batch, item));
         for (TraceEventEntity event : events) expected.put("TRACE_EVENT_APPEND:" + event.getId(), recomputeEventPayloadHash(item, event));
-        if (batch != null && product != null) publicChainVerifier.verify(traceCode, batch, events, verification, expected);
+        if (batch != null && product != null && !"NOT_SUBMITTED".equals(item.getChainStatus())) publicChainVerifier.verify(traceCode, batch, events, verification, expected);
         else verification.setVerificationSource("UNAVAILABLE");
         view.setChainVerification(verification);
         if (Integer.valueOf(3).equals(verification.getChainBatchStatus()) && view.getBatch() != null) view.getBatch().setStatus("RECALL");
@@ -201,7 +202,7 @@ public class PublicTraceQueryService {
         }
         ChainTransactionEntity latest = itemTx != null ? itemTx : batchTx;
         verification.setLatestTxHash(latest == null ? null : latest.getTxHash());
-        verification.setLatestChainStatus(latest == null ? null : latest.getChainStatus());
+        verification.setLatestChainStatus(latest == null ? ("NOT_SUBMITTED".equals(item.getChainStatus())?"NOT_SUBMITTED":null) : latest.getChainStatus());
         verification.setRecords(records);
         return verification;
     }

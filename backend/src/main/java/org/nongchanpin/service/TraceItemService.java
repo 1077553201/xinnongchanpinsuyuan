@@ -49,6 +49,7 @@ public class TraceItemService {
             throw new IllegalArgumentException("count must be between 1 and 100");
         }
         List<TraceItemEntity> items = new ArrayList<>();
+        if(traceItemMapper.packingBatchCount(request.getBatchId())>0)throw new IllegalArgumentException("该批次来自实际包装，请从采收包装的赋码入口办理，以免超过来源件数。");
         for (int i = 0; i < request.getCount(); i++) {
             items.add(createOne(batch));
         }

@@ -55,6 +55,7 @@ public class NfcService {
         if (item == null) {
             throw new IllegalArgumentException("item not found");
         }
+        if("NOT_SUBMITTED".equals(item.getChainStatus()))throw new IllegalArgumentException("该包装码尚未接入链上存证，暂不能通过旧入口绑定 NFC。");
         if (!"ACTIVE".equals(item.getStatus()) || nfcTagMapper.findLatestByItemId(item.getId()) != null) {
             throw new IllegalArgumentException("item is not active or already has an NFC binding; replacement is not supported");
         }

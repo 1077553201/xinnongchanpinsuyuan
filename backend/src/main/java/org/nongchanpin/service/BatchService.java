@@ -96,6 +96,7 @@ public class BatchService {
 
     @Transactional
     public ProductBatchEntity close(Long id, CloseBatchRequest request) {
+        if(batchMapper.packingBatchCount(id)>0)throw new IllegalArgumentException("包装来源批次暂未接入存证及召回流程，请勿通过旧批次入口改变来源状态。");
         ProductBatchEntity batch = get(id);
         if (!"ACTIVE".equals(batch.getStatus())) {
             throw new IllegalArgumentException("only active batches can be closed or recalled");

@@ -27,6 +27,16 @@ import org.nongchanpin.model.vo.ChainTxResult;
 
 class TraceItemServiceTest {
     @Test
+    void packingSourceCannotBypassQuantityRulesThroughLegacyGeneration() {
+        TraceItemMapper items=mock(TraceItemMapper.class);ProductBatchMapper batches=mock(ProductBatchMapper.class);
+        ChainService chain=mock(ChainService.class);ChainTransactionService transactions=mock(ChainTransactionService.class);
+        TraceItemService service=new TraceItemService(items,batches,chain,transactions,new ChainWriteSupport(transactions),new PayloadService(),new ContractConfig());
+        ProductBatchEntity batch=new ProductBatchEntity();batch.setStatus("ACTIVE");when(batches.findById(9L)).thenReturn(batch);when(items.packingBatchCount(9L)).thenReturn(1);
+        GenerateItemsRequest request=new GenerateItemsRequest();request.setBatchId(9L);request.setCount(1);
+        assertThrows(IllegalArgumentException.class,()->service.generate(request));verifyNoInteractions(chain,transactions);
+        org.mockito.Mockito.verify(items,org.mockito.Mockito.never()).insert(any());
+    }
+    @Test
     void closedBatchAndInvalidCountAreRejectedBeforeAnyWrites() {
         TraceItemMapper items = mock(TraceItemMapper.class);
         ProductBatchMapper batches = mock(ProductBatchMapper.class);

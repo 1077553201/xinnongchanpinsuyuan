@@ -11,6 +11,7 @@ import org.nongchanpin.model.entity.ProductBatchEntity;
 
 @Mapper
 public interface ProductBatchMapper {
+    @Select("SELECT COUNT(*) FROM packing_trace_batch WHERE batch_id=#{id}") int packingBatchCount(Long id);
     @Insert("INSERT INTO product_batch (product_id, organization_id, batch_code, production_area, plant_date, harvest_date, batch_metadata, chain_status, status) "
             + "VALUES (#{productId}, #{organizationId}, #{batchCode}, #{productionArea}, #{plantDate}, #{harvestDate}, #{batchMetadata}, #{chainStatus}, #{status})")
     @Options(useGeneratedKeys = true, keyProperty = "id")

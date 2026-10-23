@@ -41,6 +41,7 @@ public class TraceEventService {
         if (item == null) {
             throw new IllegalArgumentException("item not found");
         }
+        if("NOT_SUBMITTED".equals(item.getChainStatus()))throw new IllegalArgumentException("该包装码尚未接入存证，请通过真实业务单据记录事实，不追加通用事件。");
         ProductBatchEntity batch = batchMapper.findById(item.getBatchId());
         Map<String, Object> payload = payloadService.map();
         payload.put("traceCodeHash", item.getTraceCodeHash());

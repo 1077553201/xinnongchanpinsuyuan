@@ -11,6 +11,8 @@ import org.nongchanpin.model.entity.TraceItemEntity;
 
 @Mapper
 public interface TraceItemMapper {
+    @Select("SELECT b.* FROM packing_trace_batch b JOIN packing_trace_item i ON i.packing_id=b.packing_id WHERE i.item_id=#{id}") org.nongchanpin.model.entity.PackingTraceModels.Bridge packingSource(Long id);
+    @Select("SELECT COUNT(*) FROM packing_trace_batch WHERE batch_id=#{id}") int packingBatchCount(Long id);
     @Insert("INSERT INTO trace_item (batch_id, trace_code_hash, trace_code_encrypted, trace_code_plain, trace_url, qr_status, nfc_status, chain_status, status) "
             + "VALUES (#{batchId}, #{traceCodeHash}, #{traceCodeEncrypted}, #{traceCodePlain}, #{traceUrl}, #{qrStatus}, #{nfcStatus}, #{chainStatus}, #{status})")
     @Options(useGeneratedKeys = true, keyProperty = "id")

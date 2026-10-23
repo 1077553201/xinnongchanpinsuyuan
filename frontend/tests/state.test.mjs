@@ -47,7 +47,7 @@ test('缺失响应、缺失摘要比较或缺失批次记录都不能通过', ()
   assert.equal(traceVerdict(missingBatch).tone, 'off')
 })
 
-for (const [status, tone] of [['FAILED', 'bad'], ['PENDING', 'wait'], ['CHAIN_DISABLED', 'off'], ['UNKNOWN', 'off']]) {
+for (const [status, tone] of [['FAILED', 'bad'], ['PENDING', 'wait'], ['CHAIN_DISABLED', 'off'], ['NOT_SUBMITTED', 'off'], ['UNKNOWN', 'off']]) {
   test(`最新交易为 ${status} 时不显示成功`, () => {
     assert.equal(traceVerdict({ ...confirmed(), latestChainStatus: status }).tone, tone)
   })

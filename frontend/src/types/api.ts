@@ -7,12 +7,13 @@ export interface CommonResponse<T = unknown> {
 
 export const OK_CODE = '0'
 
-/** 链上交易状态，与后端 ChainStatus 枚举一一对应。 */
-export type ChainStatus = 'PENDING' | 'CONFIRMED' | 'FAILED' | 'CHAIN_DISABLED'
+/** 链上处理状态，NOT_SUBMITTED 表示本地来源尚未提交存证。 */
+export type ChainStatus = 'PENDING' | 'CONFIRMED' | 'FAILED' | 'CHAIN_DISABLED' | 'NOT_SUBMITTED'
 
 export type Tone = 'ok' | 'wait' | 'bad' | 'off'
 
 export const CHAIN_STATUS_LABEL: Record<string, string> = {
+  NOT_SUBMITTED: '未提交存证',
   CONFIRMED: '上链已确认',
   PENDING: '等待上链',
   FAILED: '上链失败',
