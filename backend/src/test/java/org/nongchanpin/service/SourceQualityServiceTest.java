@@ -18,7 +18,8 @@ class SourceQualityServiceTest {
     private final SourceQualityMapper mapper=mock(SourceQualityMapper.class);
     private final TraceItemMapper items=mock(TraceItemMapper.class);
     private final PackingTraceMapper packing=mock(PackingTraceMapper.class);
-    private final SourceQualityService service=new SourceQualityService(mapper,items,packing,new PayloadService(),mock(AuditService.class));
+    private final QualityRevisionMapper revisions=mock(QualityRevisionMapper.class);
+    private final SourceQualityService service=new SourceQualityService(mapper,items,packing,new PayloadService(),mock(AuditService.class),revisions);
     private final Map<Long,Report> rows=new LinkedHashMap<>();
     private final Map<Long,Attachment> files=new HashMap<>();
     private final Actor actor=new Actor();
@@ -64,4 +65,6 @@ class SourceQualityServiceTest {
     @Test void withdrawalIsIdempotentAndCannotRepublishOrRewriteReason(){Report r=create();service.withdraw(r.getId(),withdraw());service.withdraw(r.getId(),withdraw());verify(mapper,times(1)).withdraw(any());assertNull(r.getPublishedAt());assertEquals(0L,service.publicReports(223L,"CODE").get("total"));assertThrows(IllegalArgumentException.class,()->service.publish(r.getId(),publish(r,false)));Withdraw changed=withdraw();changed.setReason("different");assertThrows(IllegalArgumentException.class,()->service.withdraw(r.getId(),changed));}
     @Test void missingOrChangedAttachmentStopsDownloadAndPublication(){Report r=create();files.get(r.getId()).setContent(new byte[]{1});assertThrows(IllegalArgumentException.class,()->service.privateContent(r.getId()));assertThrows(IllegalArgumentException.class,()->service.publish(r.getId(),publish(r,true)));assertEquals("DRAFT",r.getStatus());}
     @Test void changedReportMetadataCannotReuseItsOriginalDigest(){Report r=create();r.setReportNo("CHANGED");assertThrows(IllegalArgumentException.class,()->service.list("PACKING",223L,1));assertThrows(IllegalArgumentException.class,()->service.publish(r.getId(),publish(r,false)));}
+    @Test void evidenceFactsRequireDisclosedReportAndExcludePrivateRevisionFields(){Report r=create();assertThrows(AccessException.class,()->service.publicFacts(r.getId(),38L));service.publish(r.getId(),publish(r,false));org.nongchanpin.model.entity.QualityEvidenceModels.Revision link=new org.nongchanpin.model.entity.QualityEvidenceModels.Revision();link.setPreviousReportId(1L);link.setReplacementReportId(3L);link.setPreviousReportNo("PUBLIC-A");link.setReplacementReportNo("PUBLIC-B");link.setPreviousHash("a".repeat(64));link.setReplacementHash("b".repeat(64));link.setReason("PRIVATE reason");link.setRecordedBy(999L);when(revisions.publicLinks(r.getId())).thenReturn(List.of(link));Map<String,Object> facts=service.publicFacts(r.getId(),38L);assertFalse(facts.toString().contains("PRIVATE"));assertFalse(facts.toString().contains("999"));assertEquals(1,((List<?>)facts.get("revisionLinks")).size());}
+    @Test void publicationSharesHarvestLockWithEvidenceFreeze(){Report r=create();clearInvocations(mapper);service.publish(r.getId(),publish(r,false));org.mockito.InOrder order=inOrder(mapper);order.verify(mapper).lockHarvest(17L);order.verify(mapper).lock(r.getId());}
 }

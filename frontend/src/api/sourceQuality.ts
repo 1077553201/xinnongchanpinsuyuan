@@ -10,7 +10,8 @@ export interface SourceQualityReport {
   fileSha256: string; manifestHash: string; attachmentPublic: boolean; recorderName: string; recordedAt: string
   publisherName?: string; publishedAt?: string; withdrawnAt?: string; withdrawReason?: string
 }
-export interface PublicQualityReport extends Pick<SourceQualityReport, 'id' | 'scopeType' | 'reportNo' | 'agencyName' | 'sampledOn' | 'checkedOn' | 'declaredResult' | 'status' | 'fileSize' | 'fileType' | 'fileSha256' | 'manifestHash' | 'publishedAt' | 'withdrawnAt'> { downloadPath?: string; chainStatus: 'NOT_SUBMITTED' }
+export interface QualityRevisionLink { previousReportId: number; replacementReportId: number; previousReportNo: string; replacementReportNo: string; previousHash: string; replacementHash: string }
+export interface PublicQualityReport extends Pick<SourceQualityReport, 'id' | 'scopeType' | 'reportNo' | 'agencyName' | 'sampledOn' | 'checkedOn' | 'declaredResult' | 'status' | 'fileSize' | 'fileType' | 'fileSha256' | 'manifestHash' | 'publishedAt' | 'withdrawnAt'> { downloadPath?: string; chainStatus: string; revisionLinks?: QualityRevisionLink[]; evidence?: import('./qualityEvidence').PublicQualityProof }
 export interface PackingQuality { rows: PublicQualityReport[]; total: number; limit: number }
 export interface SourceQualityList { source: QualitySource; rows: SourceQualityReport[]; total: number; page: number; pageSize: number }
 const sources = { HARVEST: 'harvests', PACKING: 'packings' }

@@ -73,7 +73,7 @@ mvn test
 
 ## 尚需独立完成
 
-当前剩余任务与下一轮推进顺序见 [下一阶段优化计划](docs/NEXT_OPTIMIZATION_PLAN.md)：逐项对应原阶段 0–5，区分核心未完成、按试点确定与后续扩展，并列出依赖及验收条件。来源赋码、生产/流转证据及质检资料附件已完成软件与授权 QA 联调；下一轮继续质检证据存证及修订关系，实地试点仍待验收。
+当前剩余任务与下一轮推进顺序见 [下一阶段优化计划](docs/NEXT_OPTIMIZATION_PLAN.md)：逐项对应原阶段 0–5，区分核心未完成、按试点确定与后续扩展，并列出依赖及验收条件。来源赋码、生产/流转证据、质检资料附件及逐码质检版本存证已完成软件与授权 QA 联调；下一轮核对二维码/NFC 一致入口及权限，实地试点仍待验收。报告替代保留原件及历史版本，详见 [质检存证与替代说明](docs/QUALITY_EVIDENCE_STAGE.md)。
 
 业务方向与分期见 [生产到销售及 Agent 规划](docs/PRODUCTION_TO_SALES_AGENT_PLAN.md)。本轮新增地块登记、种植周期开启/结束和历史档案，管理台顶部可切换“晨光绿 / 柔光玻璃”，外观选择保存在本机浏览器。
 
@@ -111,3 +111,5 @@ mvn test
 第十三批迁移 `database/migrations/013_circulation_evidence.sql` 新增逐件流转版本表，可运行 `scripts/ApplyCirculationEvidenceSchema.java`。部署本版前升级；快照绑定生产来源、版本及前序摘要，未知结果先核对，不盲目重发。本版复用原合约，不需要重新部署合约。
 
 第十四批迁移 `database/migrations/014_source_quality_reports.sql` 新增来源质检资料与附件两张表，可运行 `scripts/ApplySourceQualitySchema.java`。附件最大 5 MB，原件保存于数据库并随数据库备份；原件与资料摘要不表示已上链或已验证检测机构。部署本版前升级，新包装码不自动继承旧报告表中的模糊批次记录。
+
+第十五批迁移 `database/migrations/015_quality_evidence.sql` 新增报告替代关系与逐码质检版本表，可运行 `scripts/ApplyQualityEvidenceSchema.java`。应先完成第十四批；保留已有报告、原件和生产/流转快照，无需重新部署合约。

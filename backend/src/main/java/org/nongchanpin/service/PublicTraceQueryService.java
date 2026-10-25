@@ -42,6 +42,7 @@ public class PublicTraceQueryService {
     private final ItemCirculationService itemCirculationService;
     private final CirculationEvidenceService circulationEvidenceService;
     private final SourceQualityService sourceQualityService;
+    private final QualityEvidenceService qualityEvidenceService;
 
     @org.springframework.transaction.annotation.Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public PublicTraceView getTrace(String traceCode) {
@@ -80,6 +81,7 @@ public class PublicTraceQueryService {
         if (batch != null && product != null && !"NOT_SUBMITTED".equals(item.getChainStatus())) publicChainVerifier.verify(traceCode, batch, events, verification, expected);
         else verification.setVerificationSource("UNAVAILABLE");
         view.setChainVerification(verification);
+        if(view.getPackingQuality()!=null)for(Map<String,Object> report:(List<Map<String,Object>>)view.getPackingQuality().get("rows")){Map<String,Object> proof=qualityEvidenceService.publicEvidence(((Number)report.get("id")).longValue(),item.getId(),events,verification);if(proof!=null){report.put("evidence",proof);String status="VERIFIED".equals(proof.get("verificationStatus"))?"CONFIRMED":Boolean.TRUE.equals(proof.get("currentMatchesLatest"))?((List<Map<String,Object>>)proof.get("versions")).get(0).get("chainStatus").toString():"NOT_SUBMITTED";report.put("chainStatus",status);}}
         if(bridge!=null&&view.getCirculation()!=null){view.setCirculationEvidence(circulationEvidenceService.publicView(item.getId(),events,verification));if(view.getCirculationEvidence()!=null&&"VERIFIED".equals(view.getCirculationEvidence().get("verificationStatus")))view.getCirculation().put("chainStatus","CONFIRMED");}
         if(evidence!=null){boolean matched="LIVE_CHAIN".equals(verification.getVerificationSource())&&verification.isBatchPayloadHashMatched()&&verification.isItemPayloadHashMatched();String state=matched?"VERIFIED":"NOT_VERIFIED";view.getProductionEvidence().put("verificationStatus",state);view.getProductionSource().put("verificationStatus",state);}
         if (Integer.valueOf(3).equals(verification.getChainBatchStatus()) && view.getBatch() != null) view.getBatch().setStatus("RECALL");
