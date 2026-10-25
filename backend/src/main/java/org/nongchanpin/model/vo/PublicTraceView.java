@@ -15,6 +15,7 @@ public class PublicTraceView {
     private ChainVerification chainVerification;
     private AiStatus ai;
     private java.util.Map<String,Object> productionSource;
+    private java.util.Map<String,Object> productionEvidence;
 
     @Data
     public static class Product {

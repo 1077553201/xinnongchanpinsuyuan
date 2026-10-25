@@ -30,7 +30,7 @@ class PublicChainVerifierTest {
     void comparesFreshChainHashesAndDetectsMissingEvents() {
         ChainService chain = mock(ChainService.class);
         ChainBatchView batch = new ChainBatchView(); batch.setExists(true); batch.setPayloadHash("0xaaa");
-        ChainItemView item = new ChainItemView(); item.setExists(true); item.setPayloadHash("0xbbb"); item.setTraceEventCount(BigInteger.ZERO);
+        ChainItemView item = new ChainItemView(); item.setExists(true); item.setPayloadHash("0xbbb"); item.setBatchIdHash(org.nongchanpin.util.HashUtils.hashBusinessIdHex("B1")); item.setTraceEventCount(BigInteger.ZERO);
         when(chain.getBatch("B1")).thenReturn(batch);
         when(chain.getItem("T1")).thenReturn(item);
         ProductBatchEntity entity = new ProductBatchEntity(); entity.setBatchCode("B1");
@@ -42,6 +42,9 @@ class PublicChainVerifierTest {
         batch.setPayloadHash("0xchanged");
         new PublicChainVerifier(chain).verify("T1", entity, Collections.emptyList(), result, expected);
         assertFalse(result.isBatchPayloadHashMatched());
+        item.setBatchIdHash(org.nongchanpin.util.HashUtils.hashBusinessIdHex("OTHER"));batch.setPayloadHash("0xaaa");
+        new PublicChainVerifier(chain).verify("T1",entity,Collections.emptyList(),result,expected);
+        assertFalse(result.isItemPayloadHashMatched());
     }
 
     @Test

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onScopeDispose, ref, watch } from 'vue'
 import GlassPanel from '@/components/GlassPanel.vue'
+import ProductionEvidencePanel from '@/components/ProductionEvidencePanel.vue'
 import MetricBar from '@/components/MetricBar.vue'
 import StatusChip from '@/components/StatusChip.vue'
 import TraceTimeline from '@/components/TraceTimeline.vue'
@@ -67,9 +68,9 @@ const sealAssessment = computed(() => ({
   tone: verdict.value.tone, label: verdict.value.headline, char: verdict.value.sealChar,
 }))
 
-const sampledCount = computed(() =>
-  environments.value.reduce((total, env) => total + (env.sampleCount ?? 0), 0),
-)
+const sampledCount = computed(() => trace.value?.productionEvidence
+  ? trace.value.productionEvidence.environment.rows.reduce((total, row) => total + Number(row.sample_count ?? 0), 0)
+  : environments.value.reduce((total, env) => total + (env.sampleCount ?? 0), 0))
 
 const qualitySummary = computed(() => {
   if (!reports.value.length) return '未上传'
@@ -155,7 +156,7 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
             <span class="fact-value">{{ qualitySummary }}</span>
           </li>
           <li>
-            <span class="fact-label">近期环境采样</span>
+            <span class="fact-label">{{ trace.productionEvidence ? '本版纳入的环境采样' : '近期环境采样' }}</span>
             <span class="fact-value mono">{{ sampledCount || '—' }}</span>
           </li>
         </ul>
@@ -163,10 +164,11 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
 
       <GlassPanel v-if="trace.productionSource" padded="large" class="production-source">
         <p class="eyebrow">包装生产来源</p><h2 class="display">从这块地，到这一件包装</h2>
-        <p>来源为业务登记快照，尚未提交链上存证。此处不代表完整流通过程、实物质量或设备身份已验证。</p>
+        <p>{{ trace.productionSource.verificationStatus === 'VERIFIED' ? '来源快照已包含在本次摘要核验一致的生产证据中。' : '来源为业务登记快照，目前尚未核验通过。' }}此处不代表完整流通过程、实物质量或设备身份已验证。</p>
         <dl class="source-facts"><div><dt>地块 / 种植周期</dt><dd>{{ trace.productionSource.plotName }} · {{ trace.productionSource.cycleCode }}</dd></div><div><dt>产品 / 品种</dt><dd>{{ trace.productionSource.productName }} · {{ trace.productionSource.variety }}</dd></div><div><dt>种植日期</dt><dd>{{ formatDate(trace.productionSource.plantedOn) }}</dd></div><div><dt>采收 / 分级</dt><dd>{{ trace.productionSource.harvestCode }} · {{ trace.productionSource.gradeName }}<br />{{ formatDateTime(trace.productionSource.harvestedAt) }}</dd></div><div><dt>实际包装</dt><dd>{{ trace.productionSource.packingCode }}<br />{{ formatDateTime(trace.productionSource.packedAt) }}</dd></div><div><dt>每码对应</dt><dd>1 {{ trace.productionSource.packageUnit }}完整包装 · 净重 {{ trace.productionSource.netWeightKg }} kg</dd></div></dl>
         <p class="source-hash">来源快照摘要：{{ trace.productionSource.sourceHash }}</p>
       </GlassPanel>
+      <ProductionEvidencePanel v-if="trace.productionEvidence" :evidence="trace.productionEvidence" />
       <GlassPanel :class="`verdict tone-${verdict.tone}`">
         <div class="verdict-main">
           <p class="verdict-headline">{{ verdict.headline }}</p>
@@ -189,7 +191,7 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
         <button class="action-button" type="button" @click="load(traceCode)">重新查询</button>
       </GlassPanel>
 
-      <GlassPanel padded="large" class="block">
+      <GlassPanel v-if="!trace.productionEvidence" padded="large" class="block">
         <header class="block-head">
           <h2 class="block-title display">本批次环境记录</h2>
           <span class="muted tiny">关联到当前批次的设备采样</span>
@@ -212,11 +214,12 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
 
       <GlassPanel padded="large" class="block">
         <header class="block-head">
-          <h2 class="block-title display">农事历</h2>
+          <h2 class="block-title display">{{ trace.productionSource ? '单品流转记录' : '农事历' }}</h2>
           <span class="muted tiny">{{ events.length }} 条记录</span>
         </header>
         <p class="split-legend muted tiny">每条记录展示业务明细、保存的摘要及交易状态。</p>
-        <TraceTimeline :events="events" />
+        <TraceTimeline v-if="!trace.productionSource || events.length" :events="events" />
+        <p v-else class="muted tiny">尚未建立本件产品的销售、运输及签收关联。生产农事请查看上方生产证据。</p>
       </GlassPanel>
 
       <GlassPanel v-if="reports.length" padded="large" class="block">

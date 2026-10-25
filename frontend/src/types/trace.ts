@@ -93,6 +93,7 @@ export interface TraceAiStatus {
 }
 
 export interface PublicTraceView {
+  productionEvidence?: import('@/api/packingEvidence').ProductionEvidence
   productionSource?: import('@/api/packingCodes').PackingSource
   product?: TraceProduct
   batch?: TraceBatch

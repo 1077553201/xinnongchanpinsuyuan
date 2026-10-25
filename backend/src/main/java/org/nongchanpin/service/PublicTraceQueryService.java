@@ -55,7 +55,10 @@ public class PublicTraceQueryService {
         view.setProduct(toProduct(product));
         view.setBatch(toBatch(batch));
         view.setItem(toItem(item));
-        view.setProductionSource(PackingTraceService.publicSource(traceItemMapper.packingSource(item.getId())));
+        org.nongchanpin.model.entity.PackingTraceModels.Bridge bridge=traceItemMapper.packingSource(item.getId());
+        view.setProductionSource(PackingTraceService.publicSource(bridge));
+        org.nongchanpin.model.entity.PackingEvidenceModels.Snapshot evidence=traceItemMapper.packingEvidence(item.getId());
+        if(evidence!=null){PackingEvidenceService.validate(evidence,bridge);view.setProductionEvidence(new LinkedHashMap<>((Map<String,Object>)payloadService.readJson(evidence.getManifestJson())));view.getProductionEvidence().put("manifestHash",evidence.getManifestHash());view.getProductionEvidence().put("capturedAt",evidence.getCreatedAt());}
         view.setNfc(toNfc(nfc));
         view.setTimeline(toEvents(events));
         view.setQualityReports(toQualities(qualityReportMapper.findForTrace(item.getId(), item.getBatchId())));
@@ -63,11 +66,14 @@ public class PublicTraceQueryService {
         PublicTraceView.ChainVerification verification = verify(product, batch, item, events);
         Map<String, String> expected = new LinkedHashMap<>();
         if (batch != null && product != null) expected.put("BATCH_REGISTER", recomputeBatchPayloadHash(product, batch));
+        if(product!=null)expected.put("BATCH_PRODUCT_ID",HashUtils.hashBusinessIdHex(product.getProductCode()));
+        if(evidence!=null){Map<String,Object> frozen=(Map<String,Object>)payloadService.readJson(evidence.getBatchPayload());if(batch==null||!batch.getBatchCode().equals(frozen.get("batchCode"))||!payloadService.canonicalJson(payloadService.readJson(batch.getBatchMetadata())).equals(payloadService.canonicalJson(frozen.get("metadata"))))throw new IllegalArgumentException("批次资料与已冻结的证据不一致。");expected.put("BATCH_REGISTER",HashUtils.hashCanonicalTextHex(evidence.getBatchPayload()));expected.put("BATCH_PRODUCT_ID",HashUtils.hashBusinessIdHex(frozen.get("productCode").toString()));}
         expected.put("ITEM_BIND", recomputeItemPayloadHash(batch, item));
         for (TraceEventEntity event : events) expected.put("TRACE_EVENT_APPEND:" + event.getId(), recomputeEventPayloadHash(item, event));
         if (batch != null && product != null && !"NOT_SUBMITTED".equals(item.getChainStatus())) publicChainVerifier.verify(traceCode, batch, events, verification, expected);
         else verification.setVerificationSource("UNAVAILABLE");
         view.setChainVerification(verification);
+        if(evidence!=null){boolean matched="LIVE_CHAIN".equals(verification.getVerificationSource())&&verification.isBatchPayloadHashMatched()&&verification.isItemPayloadHashMatched();String state=matched?"VERIFIED":"NOT_VERIFIED";view.getProductionEvidence().put("verificationStatus",state);view.getProductionSource().put("verificationStatus",state);}
         if (Integer.valueOf(3).equals(verification.getChainBatchStatus()) && view.getBatch() != null) view.getBatch().setStatus("RECALL");
         if (Integer.valueOf(4).equals(verification.getChainItemStatus())) view.getItem().setStatus("RECALL");
         PublicTraceView.AiStatus ai = new PublicTraceView.AiStatus();

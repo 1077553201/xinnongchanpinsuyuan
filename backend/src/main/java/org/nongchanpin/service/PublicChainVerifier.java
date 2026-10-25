@@ -33,8 +33,10 @@ public class PublicChainVerifier {
             if (chainBatch.getStatus() != null) verification.setChainBatchStatus(chainBatch.getStatus().intValue());
             if (chainItem.getStatus() != null) verification.setChainItemStatus(chainItem.getStatus().intValue());
             Map<String, String> hashes = new HashMap<>();
-            hashes.put("BATCH_REGISTER", chainBatch.isExists() ? chainBatch.getPayloadHash() : null);
-            hashes.put("ITEM_BIND", chainItem.isExists() ? chainItem.getPayloadHash() : null);
+            boolean productMatches=!expected.containsKey("BATCH_PRODUCT_ID")||expected.get("BATCH_PRODUCT_ID").equalsIgnoreCase(chainBatch.getProductIdHash());
+            boolean linked=chainBatch.isExists()&&chainItem.isExists()&&HashUtils.hashBusinessIdHex(batch.getBatchCode()).equalsIgnoreCase(chainItem.getBatchIdHash());
+            hashes.put("BATCH_REGISTER", chainBatch.isExists()&&productMatches ? chainBatch.getPayloadHash() : null);
+            hashes.put("ITEM_BIND", linked ? chainItem.getPayloadHash() : null);
             BigInteger count = chainItem.getTraceEventCount() == null ? BigInteger.ZERO : chainItem.getTraceEventCount();
             if (count.compareTo(MAX_EVENTS) > 0 || count.signum() < 0) return;
             verification.setEventsComplete(count.intValue() == events.size());
