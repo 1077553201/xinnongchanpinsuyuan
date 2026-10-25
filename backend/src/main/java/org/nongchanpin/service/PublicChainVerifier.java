@@ -40,15 +40,17 @@ public class PublicChainVerifier {
             BigInteger count = chainItem.getTraceEventCount() == null ? BigInteger.ZERO : chainItem.getTraceEventCount();
             if (count.compareTo(MAX_EVENTS) > 0 || count.signum() < 0) return;
             verification.setEventsComplete(count.intValue() == events.size());
-            Map<String, String> eventHashes = new HashMap<>();
+            Map<String, ChainTraceEventView> eventViews = new HashMap<>();
             for (int index = 0; index < count.intValue(); index++) {
                 ChainTraceEventView event = chain.getTraceEvent(traceCode, index);
                 if (event == null || event.getEventIdHash() == null) return;
-                eventHashes.put(event.getEventIdHash().toLowerCase(), event.getPayloadHash());
+                if(!BigInteger.valueOf(index).equals(event.getIndex()))return;
+                if(eventViews.put(event.getEventIdHash().toLowerCase(),event)!=null){verification.setEventsComplete(false);return;}
             }
             for (TraceEventEntity event : events) {
                 String key = "TRACE_EVENT_APPEND:" + event.getId();
-                hashes.put(key, eventHashes.get(HashUtils.hashBusinessIdHex("TRACE_EVENT:" + event.getId()).toLowerCase()));
+                ChainTraceEventView actual=eventViews.get(HashUtils.hashBusinessIdHex("TRACE_EVENT:" + event.getId()).toLowerCase());
+                hashes.put(key,actual!=null&&actual.getIndex()!=null&&CirculationEvidenceService.eventMatches(traceCode,event,actual,actual.getIndex().longValue())?actual.getPayloadHash():null);
             }
             for (int index = 0; index < verification.getRecords().size(); index++) {
                 PublicTraceView.Record record = verification.getRecords().get(index);

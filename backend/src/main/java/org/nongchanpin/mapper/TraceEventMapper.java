@@ -11,6 +11,7 @@ import org.nongchanpin.model.entity.TraceEventEntity;
 
 @Mapper
 public interface TraceEventMapper {
+    @Select("SELECT * FROM trace_event WHERE id=#{id}") TraceEventEntity findById(Long id);
     @Insert("INSERT INTO trace_event (item_id, batch_id, event_type, event_time, location, operator_name, canonical_payload_hash, event_hash, payload, chain_status, status) "
             + "VALUES (#{itemId}, #{batchId}, #{eventType}, #{eventTime}, #{location}, #{operatorName}, #{canonicalPayloadHash}, #{eventHash}, #{payload}, #{chainStatus}, #{status})")
     @Options(useGeneratedKeys = true, keyProperty = "id")

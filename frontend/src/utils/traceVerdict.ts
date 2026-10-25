@@ -13,6 +13,17 @@ const unknown: TraceVerdict = {
   detail: '暂未取得完整的交易和摘要记录，无法作出验证结论。',
 }
 
+/** Production verification has its own scope; pending circulation versions cannot invalidate its digest. */
+export function productionTraceVerdict(value?: TraceChainVerification): TraceVerdict {
+  if (!value) return unknown
+  const records = (value.records ?? []).filter(record => ['BATCH_REGISTER', 'ITEM_BIND'].includes(record.businessType ?? ''))
+  const item = records.find(record => record.businessType === 'ITEM_BIND')
+  const result = traceVerdict({ ...value, records, latestChainStatus: item?.chainStatus, eventsComplete: true })
+  return result.tone === 'ok'
+    ? { ...result, headline: '生产来源摘要核验通过', detail: '本次核对范围为包装来源与生产证据。逐件流转证据在下方单独核验，后补事实也可能尚未提交存证。此结果不替代产品质量检测。' }
+    : result
+}
+
 /** 只在后端明确完成实时链上读取、必需摘要和事件完整性核对时给出通过结论。 */
 export function traceVerdict(value?: TraceChainVerification): TraceVerdict {
   if (!value) return unknown

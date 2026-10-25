@@ -40,7 +40,9 @@ public class PublicTraceQueryService {
     private final ContractConfig contractConfig;
     private final PublicChainVerifier publicChainVerifier;
     private final ItemCirculationService itemCirculationService;
+    private final CirculationEvidenceService circulationEvidenceService;
 
+    @org.springframework.transaction.annotation.Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public PublicTraceView getTrace(String traceCode) {
         String traceCodeHash = HashUtils.hashBusinessIdPlainHex(traceCode);
         TraceItemEntity item = traceItemMapper.findByTraceCodeHash(traceCodeHash);
@@ -63,6 +65,7 @@ public class PublicTraceQueryService {
         if(evidence!=null){PackingEvidenceService.validate(evidence,bridge);view.setProductionEvidence(new LinkedHashMap<>((Map<String,Object>)payloadService.readJson(evidence.getManifestJson())));view.getProductionEvidence().put("manifestHash",evidence.getManifestHash());view.getProductionEvidence().put("capturedAt",evidence.getCreatedAt());}
         view.setNfc(toNfc(nfc));
         view.setTimeline(toEvents(events));
+        if(bridge!=null)view.setTimeline(List.of());
         view.setQualityReports(toQualities(qualityReportMapper.findForTrace(item.getId(), item.getBatchId())));
         view.setEnvironmentSummary(toEnvironment(iotDataWindowMapper.findRecentForBatch(item.getBatchId())));
         PublicTraceView.ChainVerification verification = verify(product, batch, item, events);
@@ -75,6 +78,7 @@ public class PublicTraceQueryService {
         if (batch != null && product != null && !"NOT_SUBMITTED".equals(item.getChainStatus())) publicChainVerifier.verify(traceCode, batch, events, verification, expected);
         else verification.setVerificationSource("UNAVAILABLE");
         view.setChainVerification(verification);
+        if(bridge!=null&&view.getCirculation()!=null){view.setCirculationEvidence(circulationEvidenceService.publicView(item.getId(),events,verification));if(view.getCirculationEvidence()!=null&&"VERIFIED".equals(view.getCirculationEvidence().get("verificationStatus")))view.getCirculation().put("chainStatus","CONFIRMED");}
         if(evidence!=null){boolean matched="LIVE_CHAIN".equals(verification.getVerificationSource())&&verification.isBatchPayloadHashMatched()&&verification.isItemPayloadHashMatched();String state=matched?"VERIFIED":"NOT_VERIFIED";view.getProductionEvidence().put("verificationStatus",state);view.getProductionSource().put("verificationStatus",state);}
         if (Integer.valueOf(3).equals(verification.getChainBatchStatus()) && view.getBatch() != null) view.getBatch().setStatus("RECALL");
         if (Integer.valueOf(4).equals(verification.getChainItemStatus())) view.getItem().setStatus("RECALL");

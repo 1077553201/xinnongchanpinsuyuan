@@ -13,6 +13,12 @@ import org.nongchanpin.model.vo.ChainTraceEventView;
 import org.nongchanpin.model.vo.PublicTraceView;
 
 class PublicChainVerifierTest {
+    @Test void eventMetadataMustMatchItemTypeTimeAndIndexAsWellAsDigest() {
+        org.nongchanpin.model.entity.TraceEventEntity local=new org.nongchanpin.model.entity.TraceEventEntity();local.setEventType("LOGISTICS");local.setEventTime(java.time.LocalDateTime.of(2026,10,25,10,0));local.setCanonicalPayloadHash("aabb");
+        ChainTraceEventView live=new ChainTraceEventView();live.setItemCodeHash(org.nongchanpin.util.HashUtils.hashBusinessIdHex("CODE"));live.setEventType(BigInteger.valueOf(8));live.setIndex(BigInteger.ZERO);live.setOccurredAt(BigInteger.valueOf(local.getEventTime().atZone(java.time.ZoneId.of("Asia/Shanghai")).toEpochSecond()));live.setPayloadHash("0xaabb");
+        assertTrue(CirculationEvidenceService.eventMatches("CODE",local,live,0));
+        assertFalse(CirculationEvidenceService.eventMatches("OTHER",local,live,0));assertFalse(CirculationEvidenceService.eventMatches("CODE",local,live,1));live.setEventType(BigInteger.ONE);assertFalse(CirculationEvidenceService.eventMatches("CODE",local,live,0));live.setEventType(BigInteger.valueOf(8));live.setOccurredAt(BigInteger.ZERO);assertFalse(CirculationEvidenceService.eventMatches("CODE",local,live,0));
+    }
     private PublicTraceView.ChainVerification result() {
         PublicTraceView.ChainVerification value = new PublicTraceView.ChainVerification();
         List<PublicTraceView.Record> records = new ArrayList<>();
@@ -64,6 +70,7 @@ class PublicChainVerifierTest {
         ChainBatchView batchView = new ChainBatchView(); batchView.setExists(true); batchView.setPayloadHash("0xaaa");
         ChainItemView item = new ChainItemView(); item.setExists(true); item.setPayloadHash("0xbbb"); item.setTraceEventCount(BigInteger.ONE);
         ChainTraceEventView event = new ChainTraceEventView(); event.setEventIdHash("0xevent"); event.setPayloadHash("0xeventPayload");
+        event.setIndex(BigInteger.ZERO);
         when(chain.getBatch("B1")).thenReturn(batchView);
         when(chain.getItem("T1")).thenReturn(item);
         when(chain.getTraceEvent("T1", 0)).thenReturn(event);

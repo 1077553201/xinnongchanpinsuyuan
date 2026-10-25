@@ -12,7 +12,7 @@ async function loadTypeScript(path) {
   return import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`)
 }
 
-const { traceVerdict, recordAssessment, qualityAssessment } = await loadTypeScript('../src/utils/traceVerdict.ts')
+const { traceVerdict, productionTraceVerdict, recordAssessment, qualityAssessment } = await loadTypeScript('../src/utils/traceVerdict.ts')
 const { chainHealthBadge } = await loadTypeScript('../src/utils/chainHealth.ts')
 const { nfcStatusLabel } = await loadTypeScript('../src/types/api.ts')
 
@@ -34,6 +34,23 @@ function confirmed() {
     })),
   }
 }
+
+test('流转版本待确认时，生产来源独立核验且明确范围', () => {
+  const value = confirmed()
+  value.eventsComplete = false
+  value.records.push({ businessType: 'TRACE_EVENT_APPEND', chainStatus: 'PENDING', verificationSource: 'UNAVAILABLE' })
+  assert.equal(traceVerdict(value).tone, 'wait')
+  assert.equal(productionTraceVerdict(value).tone, 'ok')
+  assert.match(productionTraceVerdict(value).detail, /逐件流转证据在下方单独核验/)
+})
+
+test('生产来源范围仍要求实时链和完整批次、单品摘要', () => {
+  for (const mutate of [value => { value.verificationSource = 'UNAVAILABLE' }, value => { value.batchPayloadHashMatched = false }, value => { value.records.shift() }]) {
+    const value = confirmed()
+    mutate(value)
+    assert.notEqual(productionTraceVerdict(value).tone, 'ok')
+  }
+})
 
 test('缺失响应、缺失摘要比较或缺失批次记录都不能通过', () => {
   for (const value of [undefined, {}, { latestChainStatus: 'CONFIRMED' }]) {

@@ -9,7 +9,7 @@ export interface DispatchItems {
   rows: CirculationItem[]; total: number; page: number; pageSize: number
 }
 export interface PublicCirculation {
-  chainStatus: 'NOT_SUBMITTED'; dispatchedAt: string; linkedAt: string; receiptOutcome?: ReceiptOutcome; receiptRecordedAt?: string
+  chainStatus: string; dispatchedAt: string; linkedAt: string; receiptOutcome?: ReceiptOutcome; receiptRecordedAt?: string
   transportStatus: string; eventsTruncated: boolean; events: { kind: string; occurredAt: string }[]
 }
 export const dispatchItems = (id: number, search: string, mode: string, page: number) => get<DispatchItems>(`/production/sales/dispatches/${id}/items`, { search, mode, page })

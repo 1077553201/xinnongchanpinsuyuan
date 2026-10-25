@@ -896,3 +896,26 @@ CREATE TABLE IF NOT EXISTS item_dispatch_link (
     CONSTRAINT fk_item_receipt_event FOREIGN KEY (receipt_event_id) REFERENCES transport_event(id),
     CONSTRAINT fk_item_receipt_operation FOREIGN KEY (receipt_request_key) REFERENCES item_dispatch_operation(request_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS item_circulation_evidence (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    item_id BIGINT NOT NULL,
+    version INT NOT NULL,
+    manifest_json MEDIUMTEXT NOT NULL,
+    manifest_hash VARCHAR(64) NOT NULL,
+    previous_hash VARCHAR(64),
+    event_id BIGINT NOT NULL,
+    chain_status VARCHAR(32) NOT NULL DEFAULT 'NOT_SUBMITTED',
+    tx_id BIGINT,
+    error_code VARCHAR(64),
+    created_by BIGINT NOT NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    lease_token VARCHAR(36),
+    lease_until DATETIME,
+    UNIQUE KEY uk_circulation_version (item_id,version),
+    UNIQUE KEY uk_circulation_event (event_id),
+    CONSTRAINT ck_circulation_manifest CHECK (JSON_VALID(manifest_json)),
+    CONSTRAINT ck_circulation_version CHECK (version BETWEEN 1 AND 50),
+    CONSTRAINT fk_circulation_item FOREIGN KEY (item_id) REFERENCES item_dispatch_link(item_id),
+    CONSTRAINT fk_circulation_event FOREIGN KEY (event_id) REFERENCES trace_event(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

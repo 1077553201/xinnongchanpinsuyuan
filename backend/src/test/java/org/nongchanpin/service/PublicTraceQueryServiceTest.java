@@ -58,7 +58,7 @@ class PublicTraceQueryServiceTest {
         when(windowMapper.findRecentForBatch(2L)).thenReturn(Collections.emptyList());
 
         PublicTraceQueryService service = new PublicTraceQueryService(itemMapper, batchMapper, productMapper,
-                nfcMapper, eventMapper, qualityMapper, windowMapper, txService, new PayloadService(), contractConfig, mock(PublicChainVerifier.class), mock(ItemCirculationService.class));
+                nfcMapper, eventMapper, qualityMapper, windowMapper, txService, new PayloadService(), contractConfig, mock(PublicChainVerifier.class), mock(ItemCirculationService.class), mock(CirculationEvidenceService.class));
 
         PublicTraceView view = service.getTrace(traceCode);
 
