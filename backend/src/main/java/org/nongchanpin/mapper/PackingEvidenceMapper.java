@@ -7,6 +7,8 @@ import org.nongchanpin.model.entity.PackingEvidenceModels.*;
 
 @Mapper
 public interface PackingEvidenceMapper {
+    @Select("SELECT * FROM packing_evidence_job WHERE id=#{id}") Job findJob(Long id);
+    @Select("SELECT * FROM packing_evidence_job WHERE id=#{id} FOR UPDATE") Job lockJob(Long id);
     @Select("SELECT * FROM packing_evidence WHERE packing_id=#{id}") Snapshot snapshot(Long id);
     @Insert("INSERT INTO packing_evidence(packing_id,manifest_json,manifest_hash,batch_payload,created_by) VALUES(#{packingId},#{manifestJson},#{manifestHash},#{batchPayload},#{createdBy})") int insertSnapshot(Snapshot snapshot);
     @Update("UPDATE packing_evidence SET lease_token=#{token},lease_until=#{until} WHERE packing_id=#{id}") int claim(@Param("id")Long id,@Param("token")String token,@Param("until")LocalDateTime until);

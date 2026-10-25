@@ -57,6 +57,8 @@ class PackingNfcServiceTest {
         chainItem.setExists(true);chainItem.setStatus(BigInteger.ONE);chainItem.setBatchIdHash(HashUtils.hashBusinessIdHex("PACK-QA"));chainItem.setPayloadHash(payloads.payloadHashWithPrefix(Map.of("traceCodeHash",item.getTraceCodeHash(),"batchCode","PACK-QA","traceUrl",item.getTraceUrl())));chainItem.setNfcUidHash("0x"+"0".repeat(64));
         when(chain.getItem("CODE-QA")).thenReturn(chainItem);when(chain.getNfcTag(anyString())).thenReturn(chainTag);
         when(operations.operation(eq(40L),anyString())).thenAnswer(c->rows.get(c.getArgument(1)));
+        when(operations.find(anyLong())).thenAnswer(c->rows.values().stream().filter(r->r.getId().equals(c.getArgument(0))).findFirst().orElse(null));
+        when(operations.lockFrozen(anyLong())).thenAnswer(c->operations.find(c.getArgument(0)));
         when(operations.history(40L)).thenAnswer(c->new ArrayList<>(rows.values()));
         doAnswer(c->{PackingNfcOperation row=c.getArgument(0);row.setId((long)rows.size()+1);row.setRecordedAt(LocalDateTime.now());rows.put(row.getOperation(),row);return 1;}).when(operations).insert(any());
         doAnswer(c->{rows.get("BIND").setLeaseToken(c.getArgument(1));rows.get("BIND").setLeaseUntil(c.getArgument(2));return 1;}).when(operations).claim(any(),any(),any());
@@ -74,6 +76,17 @@ class PackingNfcServiceTest {
         when(chain.updateNfcStatus(any())).thenAnswer(c->{UpdateNfcStatusCommand command=c.getArgument(0);if(command==null)return null;assertNotNull(rows.get("DISABLE").getTxId());chainTag.setStatus(BigInteger.valueOf(3));chainTag.setReasonHash(payloads.payloadHashWithPrefix(command.getReasonPayload()));return receipt(ChainStatus.CONFIRMED,"0");});
     }
     @AfterEach void clear(){AccessContext.clear();}
+    @Test void reconciliationOfOriginalBindDoesNotReactivateDisabledTag() {
+        bind();service.submit(40L,request("DISABLE"));PackingNfcOperation original=rows.get("BIND");original.setChainStatus("UNCERTAIN");
+        clearInvocations(chain,transactions);service.reconcileFrozen(original.getId(),original.getPayloadHash(),original.getTxId());
+        assertEquals("CONFIRMED",original.getChainStatus());assertEquals("DISABLED",tag.getStatus());assertEquals(false,service.publicState(40L).get("active"));
+        verify(chain,never()).bindNfcTag(any());verify(chain,never()).updateNfcStatus(any());verify(transactions,never()).createPending(any(),any(),any(),any(),any(),any(),any());
+    }
+    @Test void reconciliationDoesNotSendMissingNfcRecord() {
+        bind();PackingNfcOperation original=rows.get("BIND");chainTag.setExists(false);chainItem.setNfcUidHash("0x"+"0".repeat(64));clearInvocations(chain,transactions);
+        service.reconcileFrozen(original.getId(),original.getPayloadHash(),original.getTxId());
+        assertEquals("UNCERTAIN",original.getChainStatus());verify(chain,never()).bindNfcTag(any());verify(chain,never()).updateNfcStatus(any());verify(transactions,never()).createPending(any(),any(),any(),any(),any(),any(),any());
+    }
     private void bindOnChain(BindNfcTagCommand command){chainTag.setExists(true);chainTag.setNfcUidHash(command.getNfcUid());chainTag.setItemCodeHash(HashUtils.hashBusinessIdHex(command.getItemCode()));chainTag.setPayloadHash(payloads.payloadHashWithPrefix(command.getPayload()));chainTag.setStatus(BigInteger.ONE);chainItem.setNfcUidHash(command.getNfcUid());}
     private ChainTxResult receipt(ChainStatus state,String status){ChainTxResult value=new ChainTxResult();value.setChainStatus(state);value.setReceiptStatus(status);return value;}
     private PackingNfcRequest request(String action){PackingNfcRequest r=new PackingNfcRequest();r.setOperation(action);r.setUid("BIND".equals(action)?uid:null);r.setReason("DISABLE".equals(action)?"PRIVATE-QA 标签损坏":null);r.setExpectedHash((String)service.detail(40L,action,r.getUid(),r.getReason()).get("payloadHash"));return r;}

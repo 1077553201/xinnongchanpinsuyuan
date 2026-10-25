@@ -46,6 +46,19 @@ public class QualityEvidenceService {
         boolean limit=latest!=null&&latest.getVersion()==20&&!sameFacts(latest,quality.publicFacts(reportId,itemId));return Map.of("manifest",candidate,"manifestHash",payloads.requestHash(candidate),"traceCode",items.findById(itemId).getTraceCodePlain(),"frozen",latest!=null&&latest.getManifestHash().equals(payloads.requestHash(candidate)),"versionLimitReached",limit,"versions",versions);
     }
     public Map<String,Object> submit(Long reportId,Submit request){AccessContext.write();Long itemId=resolve(reportId,request.getTraceCode());String token=UUID.randomUUID().toString();Evidence row=tx.execute(s->prepare(reportId,itemId,request,token));try{run(row,token);}finally{tx.execute(s->{evidence.release(row.getId(),token);return null;});}return preview(reportId,request.getTraceCode());}
+    public void reconcileFrozen(Long id,String expectedHash,Long expectedTx) {
+        AccessContext.write();String token=UUID.randomUUID().toString();
+        Evidence row=tx.execute(s->{
+            Evidence observed=evidence.find(id);if(observed==null)throw new IllegalArgumentException("质检版本不存在。");
+            Report report=quality.checkedReport(observed.getReportId());reports.lockHarvest(report.getHarvestId());reports.lock(report.getId());
+            Bridge bridge=access(observed.getReportId(),observed.getItemId());packing.lock(bridge.getPackingId());
+            Evidence saved=evidence.lockFrozen(id);validate(saved,events.findById(saved.getEventId()));
+            ReconciliationGuard.check(saved.getManifestHash(),saved.getTxId(),expectedHash,expectedTx);
+            if(saved.getLeaseUntil()!=null&&saved.getLeaseUntil().isAfter(LocalDateTime.now()))throw new IllegalArgumentException("原操作仍在处理中。");
+            evidence.claim(id,token,LocalDateTime.now().plusMinutes(5));return saved;
+        });
+        try{run(row,token,false);}finally{tx.execute(s->{evidence.release(id,token);return null;});}
+    }
     private Evidence prepare(Long reportId,Long itemId,Submit request,String token){
         Report report=quality.checkedReport(reportId);reports.lockHarvest(report.getHarvestId());reports.lock(reportId);Bridge bridge=access(reportId,itemId);packing.lock(bridge.getPackingId());quality.privateContent(reportId);
         TraceItemEntity item=items.findById(itemId);if(!"CONFIRMED".equals(item.getChainStatus())||!"ACTIVE".equals(item.getStatus()))throw new IllegalArgumentException("请先完成本码生产来源存证，并确认包装码仍可用。");
@@ -64,7 +77,8 @@ public class QualityEvidenceService {
         Map<String,Object> value=payloads.map();value.put("schema","QUALITY_REPORT_EVIDENCE_V1");value.put("version",latest==null?1:latest.getVersion()+1);value.put("previousHash",latest==null?null:latest.getManifestHash());value.put("traceCodeHash",items.findById(itemId).getTraceCodeHash());value.put("sourceHash",bridge.getSourceHash());value.put("productionManifestHash",source.getManifestHash());value.put("reportFacts",facts);return value;
     }
 
-    private boolean run(Evidence row,String token) {
+    private boolean run(Evidence row,String token) { return run(row,token,true); }
+    private boolean run(Evidence row,String token,boolean allowSend) {
         tx.execute(s->{locked(row,token);return null;});TraceItemEntity item=items.findById(row.getItemId());TraceEventEntity event=events.findById(row.getEventId());validate(row,event);
         try {
             Bridge bridge=packing.publicBridge(row.getItemId());PackingEvidenceModels.Snapshot source=production.snapshot(bridge.getPackingId());PackingEvidenceService.validate(source,bridge);
@@ -94,13 +108,14 @@ public class QualityEvidenceService {
         }catch(RuntimeException e){return state(row,token,row.getTxId()==null?"NOT_SUBMITTED":"UNCERTAIN","CHAIN_READ_UNAVAILABLE");}
         if(row.getTxId()!=null){ChainTransactionEntity old=transactions.get(row.getTxId());boolean retry="CHAIN_DISABLED".equals(old.getChainStatus())||("FAILED".equals(old.getChainStatus())&&old.getReceiptStatus()!=null&&!old.getReceiptStatus().isBlank());if(!retry)return state(row,token,"UNCERTAIN","RECONCILE_REQUIRED");}
         if("CONFIRMED".equals(row.getChainStatus()))return state(row,token,"UNCERTAIN","CHAIN_RECORD_MISSING");
+        if(!allowSend)return state(row,token,"UNCERTAIN","RECONCILE_REQUIRED");
         ChainTransactionEntity pending=tx.execute(s->{locked(row,token);ChainTransactionEntity value=transactions.createPending("TRACE_EVENT_APPEND",event.getId(),HashUtils.hashBusinessIdHex("TRACE_EVENT:"+event.getId()),config.getAgriTraceAddress(),"TraceEventAppended","0x"+event.getCanonicalPayloadHash(),row.getManifestHash());row.setTxId(value.getId());row.setChainStatus("PENDING");row.setErrorCode(null);evidence.state(row);events.updateChainStatus(event.getId(),"PENDING");return value;});
         AppendTraceEventCommand command=new AppendTraceEventCommand();command.setItemCode(item.getTraceCodePlain());command.setEventId("TRACE_EVENT:"+event.getId());command.setEventType(5);command.setPayload(map(event.getPayload()));command.setOccurredAt(event.getEventTime().atZone(ZoneId.of("Asia/Shanghai")).toEpochSecond());
         ChainTxResult receipt;
         try{receipt=chain.appendTraceEvent(command);}catch(RuntimeException e){return state(row,token,"UNCERTAIN","CHAIN_RESULT_UNKNOWN");}
         if(receipt==null||receipt.getChainStatus()==null)return state(row,token,"UNCERTAIN","CHAIN_RESULT_UNKNOWN");
         tx.execute(s->{locked(row,token);transactions.completeFromResult(pending,receipt);return null;});
-        if(receipt.getChainStatus()==ChainStatus.CONFIRMED)return run(row,token);
+        if(receipt.getChainStatus()==ChainStatus.CONFIRMED)return run(row,token,allowSend);
         if(receipt.getChainStatus()==ChainStatus.CHAIN_DISABLED)return state(row,token,"CHAIN_DISABLED","CHAIN_DISABLED");
         boolean known=receipt.getReceiptStatus()!=null&&!receipt.getReceiptStatus().isBlank();return state(row,token,known?"FAILED":"UNCERTAIN",known?"TRANSACTION_FAILED":"CHAIN_RESULT_UNKNOWN");
     }
@@ -118,7 +133,7 @@ public class QualityEvidenceService {
     private Map<String,Object> summary(Evidence row){Map<String,Object> value=new LinkedHashMap<>();value.put("version",row.getVersion());value.put("manifest",payloads.readJson(row.getManifestJson()));value.put("manifestHash",row.getManifestHash());value.put("createdAt",row.getCreatedAt());value.put("chainStatus",row.getChainStatus());value.put("txId",row.getTxId());value.put("errorCode",row.getErrorCode());return value;}
     @SuppressWarnings("unchecked") private Map<String,Object> map(String json){Object value=payloads.readJson(json);if(!(value instanceof Map))throw new IllegalArgumentException("质检证据格式不正确。");return (Map<String,Object>)value;}
     private Map<String,Object> eventBody(TraceItemEntity item,TraceEventEntity event,Object content){Map<String,Object> body=payloads.map();body.put("traceCodeHash",item.getTraceCodeHash());body.put("eventType",event.getEventType());body.put("eventTime",event.getEventTime());body.put("location",event.getLocation());body.put("operatorName",event.getOperatorName());body.put("payload",content);return body;}
-    private void validate(Evidence row,TraceEventEntity event){
+    void validate(Evidence row,TraceEventEntity event){
         if(event==null||!row.getItemId().equals(event.getItemId())||!HashUtils.hashCanonicalTextPlainHex(row.getManifestJson()).equals(row.getManifestHash()))throw new IllegalArgumentException("质检证据摘要或包装码归属不一致。");
         Map<String,Object> manifest=map(row.getManifestJson()),facts=(Map<String,Object>)manifest.get("reportFacts"),body=map(event.getPayload()),content=(Map<String,Object>)body.get("payload");TraceItemEntity item=items.findById(row.getItemId());Bridge bridge=packing.publicBridge(row.getItemId());PackingEvidenceModels.Snapshot source=production.snapshot(bridge.getPackingId());Report report=reports.report(row.getReportId());
         if(row.getVersion()>1){Evidence previous=evidence.byVersion(row.getReportId(),row.getItemId(),row.getVersion()-1);if(previous==null||!previous.getManifestHash().equals(row.getPreviousHash()))throw new IllegalArgumentException("质检证据前序版本摘要不一致。");}

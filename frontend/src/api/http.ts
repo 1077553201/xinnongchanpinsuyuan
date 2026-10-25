@@ -66,8 +66,8 @@ async function request<T>(config: AxiosRequestConfig): Promise<T> {
   }
 }
 
-export function get<T>(url: string, params?: Record<string, unknown>): Promise<T> {
-  return request<T>({ method: 'GET', url, params })
+export function get<T>(url: string, params?: Record<string, unknown>, timeout = 15000): Promise<T> {
+  return request<T>({ method: 'GET', url, params, timeout })
 }
 
 export function post<T>(url: string, data?: unknown, timeout = 15000): Promise<T> {

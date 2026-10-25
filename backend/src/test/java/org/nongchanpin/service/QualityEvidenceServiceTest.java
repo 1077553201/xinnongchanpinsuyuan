@@ -68,6 +68,17 @@ class QualityEvidenceServiceTest {
         when(chain.appendTraceEvent(any())).thenAnswer(c->{append(c.getArgument(0));return confirmed();});
     }
     @AfterEach void clear(){AccessContext.clear();}
+    @BeforeEach void lockedRecord(){when(evidence.lockFrozen(anyLong())).thenAnswer(c->evidence.find(c.getArgument(0)));}
+    @Test void reconciliationConfirmsFrozenReportWithoutResending() {
+        service.submit(5L,request());Evidence row=versions.values().iterator().next();row.setChainStatus("UNCERTAIN");
+        clearInvocations(chain,transactions);service.reconcileFrozen(row.getId(),row.getManifestHash(),row.getTxId());
+        assertEquals("CONFIRMED",row.getChainStatus());verify(chain,never()).appendTraceEvent(any());verify(transactions,never()).createPending(any(),any(),any(),any(),any(),any(),any());
+    }
+    @Test void reconciliationCannotSendMissingQualityVersion() {
+        service.submit(5L,request());Evidence row=versions.values().iterator().next();live.clear();clearInvocations(chain,transactions);
+        service.reconcileFrozen(row.getId(),row.getManifestHash(),row.getTxId());
+        assertEquals("UNCERTAIN",row.getChainStatus());verify(chain,never()).appendTraceEvent(any());verify(transactions,never()).createPending(any(),any(),any(),any(),any(),any(),any());
+    }
     private Submit request(){Submit r=new Submit();r.setTraceCode("CODE-QA");r.setExpectedManifestHash((String)service.preview(5L,"CODE-QA").get("manifestHash"));return r;}
     private ChainTxResult confirmed(){ChainTxResult r=new ChainTxResult();r.setChainStatus(ChainStatus.CONFIRMED);r.setReceiptStatus("0");return r;}
     private void append(AppendTraceEventCommand c){ChainTraceEventView v=new ChainTraceEventView();v.setIndex(BigInteger.valueOf(live.size()));v.setItemCodeHash(HashUtils.hashBusinessIdHex(c.getItemCode()));v.setEventIdHash(HashUtils.hashBusinessIdHex(c.getEventId()));v.setEventType(BigInteger.valueOf(c.getEventType()));v.setOccurredAt(BigInteger.valueOf(c.getOccurredAt()));v.setPayloadHash(payloads.payloadHashWithPrefix(c.getPayload()));live.add(v);}

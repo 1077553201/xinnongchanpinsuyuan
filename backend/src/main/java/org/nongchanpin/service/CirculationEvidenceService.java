@@ -56,6 +56,18 @@ public class CirculationEvidenceService {
         return preview(itemId);
     }
 
+    public void reconcileFrozen(Long id,String expectedHash,Long expectedTx) {
+        AccessContext.write();String token=UUID.randomUUID().toString();
+        CirculationEvidenceEntity row=tx.execute(s->{
+            CirculationEvidenceEntity observed=evidence.find(id);if(observed==null)throw new IllegalArgumentException("流转版本不存在。");
+            Bridge bridge=access(observed.getItemId());packing.lock(bridge.getPackingId());
+            CirculationEvidenceEntity saved=evidence.lockFrozen(id);validate(saved,events.findById(saved.getEventId()));
+            ReconciliationGuard.check(saved.getManifestHash(),saved.getTxId(),expectedHash,expectedTx);
+            if(saved.getLeaseUntil()!=null&&saved.getLeaseUntil().isAfter(LocalDateTime.now()))throw new IllegalArgumentException("原操作仍在处理中。");
+            evidence.claim(id,token,LocalDateTime.now().plusMinutes(5));return saved;
+        });
+        try{run(row,token,false);}finally{tx.execute(s->{evidence.release(id,token);return null;});}
+    }
     private CirculationEvidenceEntity prepare(Long itemId,SubmitCirculationEvidenceRequest request,String token) {
         Bridge bridge=access(itemId);
         // Match sales/create/receipt lock order: order -> packaging -> shipment.
@@ -90,7 +102,8 @@ public class CirculationEvidenceService {
         Map<String,Object> manifest=payloads.map();manifest.put("schema","ITEM_CIRCULATION_V1");manifest.put("version",version);manifest.put("previousHash",latest==null?null:latest.getManifestHash());manifest.put("traceCodeHash",items.findById(itemId).getTraceCodeHash());manifest.put("sourceHash",bridge.getSourceHash());manifest.put("productionManifestHash",source.getManifestHash());manifest.put("circulation",facts);return manifest;
     }
 
-    private boolean run(CirculationEvidenceEntity row,String token) {
+    private boolean run(CirculationEvidenceEntity row,String token) { return run(row,token,true); }
+    private boolean run(CirculationEvidenceEntity row,String token,boolean allowSend) {
         tx.execute(s->{locked(row,token);return null;});TraceItemEntity item=items.findById(row.getItemId());TraceEventEntity event=events.findById(row.getEventId());validate(row,event);
         try {
             Bridge bridge=packing.publicBridge(row.getItemId());PackingEvidenceModels.Snapshot source=production.snapshot(bridge.getPackingId());PackingEvidenceService.validate(source,bridge);
@@ -120,13 +133,14 @@ public class CirculationEvidenceService {
         }catch(RuntimeException e){return state(row,token,row.getTxId()==null?"NOT_SUBMITTED":"UNCERTAIN","CHAIN_READ_UNAVAILABLE");}
         if(row.getTxId()!=null){ChainTransactionEntity old=transactions.get(row.getTxId());boolean retry="CHAIN_DISABLED".equals(old.getChainStatus())||("FAILED".equals(old.getChainStatus())&&old.getReceiptStatus()!=null&&!old.getReceiptStatus().isBlank());if(!retry)return state(row,token,"UNCERTAIN","RECONCILE_REQUIRED");}
         if("CONFIRMED".equals(row.getChainStatus()))return state(row,token,"UNCERTAIN","CHAIN_RECORD_MISSING");
+        if(!allowSend)return state(row,token,"UNCERTAIN","RECONCILE_REQUIRED");
         ChainTransactionEntity pending=tx.execute(s->{locked(row,token);ChainTransactionEntity value=transactions.createPending("TRACE_EVENT_APPEND",event.getId(),HashUtils.hashBusinessIdHex("TRACE_EVENT:"+event.getId()),config.getAgriTraceAddress(),"TraceEventAppended","0x"+event.getCanonicalPayloadHash(),row.getManifestHash());row.setTxId(value.getId());row.setChainStatus("PENDING");row.setErrorCode(null);evidence.state(row);events.updateChainStatus(event.getId(),"PENDING");return value;});
         AppendTraceEventCommand command=new AppendTraceEventCommand();command.setItemCode(item.getTraceCodePlain());command.setEventId("TRACE_EVENT:"+event.getId());command.setEventType(8);command.setPayload(map(event.getPayload()));command.setOccurredAt(event.getEventTime().atZone(ZoneId.of("Asia/Shanghai")).toEpochSecond());
         ChainTxResult receipt;
         try{receipt=chain.appendTraceEvent(command);}catch(RuntimeException e){return state(row,token,"UNCERTAIN","CHAIN_RESULT_UNKNOWN");}
         if(receipt==null||receipt.getChainStatus()==null)return state(row,token,"UNCERTAIN","CHAIN_RESULT_UNKNOWN");
         tx.execute(s->{locked(row,token);transactions.completeFromResult(pending,receipt);return null;});
-        if(receipt.getChainStatus()==ChainStatus.CONFIRMED)return run(row,token);
+        if(receipt.getChainStatus()==ChainStatus.CONFIRMED)return run(row,token,allowSend);
         if(receipt.getChainStatus()==ChainStatus.CHAIN_DISABLED)return state(row,token,"CHAIN_DISABLED","CHAIN_DISABLED");
         boolean known=receipt.getReceiptStatus()!=null&&!receipt.getReceiptStatus().isBlank();return state(row,token,known?"FAILED":"UNCERTAIN",known?"TRANSACTION_FAILED":"CHAIN_RESULT_UNKNOWN");
     }
@@ -149,7 +163,7 @@ public class CirculationEvidenceService {
     private boolean state(CirculationEvidenceEntity row,String token,String status,String error){tx.execute(s->{locked(row,token);row.setChainStatus(status);row.setErrorCode(error);evidence.state(row);events.updateChainStatus(row.getEventId(),"UNCERTAIN".equals(status)?"PENDING":status);audit.record("CIRCULATION_RESULT","TRACE_ITEM",row.getItemId(),"版本 "+row.getVersion()+" / "+status);return null;});return "CONFIRMED".equals(status);}
     @SuppressWarnings("unchecked") private Map<String,Object> map(String value){Object parsed=payloads.readJson(value);if(!(parsed instanceof Map))throw new IllegalArgumentException("流转证据格式不正确。");return (Map<String,Object>)parsed;}
     private Map<String,Object> eventBody(TraceItemEntity item,TraceEventEntity event,Object content){Map<String,Object> body=payloads.map();body.put("traceCodeHash",item.getTraceCodeHash());body.put("eventType",event.getEventType());body.put("eventTime",event.getEventTime());body.put("location",event.getLocation());body.put("operatorName",event.getOperatorName());body.put("payload",content);return body;}
-    private void validate(CirculationEvidenceEntity row,TraceEventEntity event){
+    void validate(CirculationEvidenceEntity row,TraceEventEntity event){
         if(event==null||!row.getItemId().equals(event.getItemId())||!HashUtils.hashCanonicalTextPlainHex(row.getManifestJson()).equals(row.getManifestHash()))throw new IllegalArgumentException("流转证据摘要或归属不一致。");
         Map<String,Object> manifest=map(row.getManifestJson()),body=map(event.getPayload()),content=(Map<String,Object>)body.get("payload");
         String canonicalEvent=payloads.canonicalJson(body);

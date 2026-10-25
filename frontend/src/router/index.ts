@@ -122,6 +122,9 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '链上交易', eyebrow: 'Chain Explorer' },
       },
       {
+        path: 'evidence-reconciliation', name: 'admin-evidence-reconciliation', component: () => import('@/views/admin/EvidenceReconciliationView.vue'), meta: { title: '证据对账', eyebrow: 'Evidence reconciliation' },
+      },
+      {
         path: 'ai',
         name: 'admin-ai',
         component: () => import('@/views/admin/AiView.vue'),
@@ -150,7 +153,7 @@ router.beforeEach(async to => {
   try {
     if (!await auth.restore()) return { path: '/login', query: { redirect: to.fullPath } }
   } catch { return { path: '/login', query: { unavailable: '1', redirect: to.fullPath } } }
-  if (!auth.isAdmin.value && to.name !== 'admin-warehouse-stock' && !['/admin', '/admin/production', '/admin/farming', '/admin/harvest', '/admin/inventory', '/admin/sales', '/admin/transport', '/admin/monitoring', '/admin/accounts', '/admin/ai'].includes(to.path)) return '/admin/production'
+  if (!auth.isAdmin.value && to.name !== 'admin-warehouse-stock' && !['/admin', '/admin/production', '/admin/farming', '/admin/harvest', '/admin/inventory', '/admin/sales', '/admin/transport', '/admin/monitoring', '/admin/accounts', '/admin/ai', '/admin/evidence-reconciliation'].includes(to.path)) return '/admin/production'
   return true
 })
 export default router

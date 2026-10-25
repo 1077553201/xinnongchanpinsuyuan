@@ -6,6 +6,10 @@ import org.nongchanpin.model.entity.PackingNfcOperation;
 
 @Mapper
 public interface PackingNfcMapper {
+    @Select("SELECT * FROM packing_nfc_operation WHERE id=#{id}")
+    PackingNfcOperation find(Long id);
+    @Select("SELECT * FROM packing_nfc_operation WHERE id=#{id} FOR UPDATE")
+    PackingNfcOperation lockFrozen(Long id);
     @Select("SELECT * FROM packing_nfc_operation WHERE item_id=#{itemId} AND operation=#{operation}")
     PackingNfcOperation operation(@Param("itemId") Long itemId,@Param("operation") String operation);
 

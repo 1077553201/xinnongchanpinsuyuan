@@ -54,6 +54,32 @@ public class PackingEvidenceService {
         } finally {tx.execute(s->{evidence.release(id,token);return null;});}
         return preview(id);
     }
+    public void reconcileFrozen(Long jobId,String expectedHash,Long expectedTx) {
+        AccessContext.write();String token=UUID.randomUUID().toString();
+        Job row=tx.execute(s->{
+            Job observed=evidence.findJob(jobId);if(observed==null)throw new IllegalArgumentException("存证操作不存在。");
+            access(observed.getPackingId());traces.lock(observed.getPackingId());
+            Job saved=evidence.lockJob(jobId);validateFrozen(saved);
+            ReconciliationGuard.check(saved.getPayloadHash(),saved.getTxId(),expectedHash,expectedTx);
+            Snapshot snapshot=evidence.snapshot(saved.getPackingId());
+            if(snapshot.getLeaseUntil()!=null&&snapshot.getLeaseUntil().isAfter(LocalDateTime.now()))throw new IllegalArgumentException("原操作仍在处理中。");
+            evidence.claim(saved.getPackingId(),token,LocalDateTime.now().plusMinutes(5));return saved;
+        });
+        try{run(row,token,false);}finally{tx.execute(s->{evidence.release(row.getPackingId(),token);return null;});}
+    }
+    void validateFrozen(Job row) {
+        Bridge bridge=bridge(row.getPackingId());Snapshot saved=evidence.snapshot(row.getPackingId());
+        if(saved==null)throw new IllegalArgumentException("冻结生产证据不存在。");validate(saved,bridge);
+        String expected;
+        if("BATCH_REGISTER".equals(row.getBusinessType())) {
+            if(!bridge.getBatchId().equals(row.getBusinessId()))throw new IllegalArgumentException("批次归属不一致。");expected=saved.getBatchPayload();
+        } else if("ITEM_BIND".equals(row.getBusinessType())) {
+            if(!row.getPackingId().equals(evidence.packingForItem(row.getBusinessId())))throw new IllegalArgumentException("包装码归属不一致。");
+            TraceItemEntity item=items.findById(row.getBusinessId());ProductBatchEntity batch=batches.findById(bridge.getBatchId());
+            expected=payloads.canonicalJson(Map.of("traceCodeHash",item.getTraceCodeHash(),"batchCode",batch.getBatchCode(),"traceUrl",item.getTraceUrl()));
+        } else throw new IllegalArgumentException("存证操作类型无效。");
+        if(!payloads.canonicalJson(map(expected)).equals(payloads.canonicalJson(map(row.getPayloadJson())))||!HashUtils.hashCanonicalTextHex(row.getPayloadJson()).equalsIgnoreCase(row.getPayloadHash()))throw new IllegalArgumentException("冻结生产操作摘要不一致。");
+    }
     private List<Job> prepare(Long id,SubmitPackingEvidenceRequest request,String token) {
         Source source=access(id);traces.lock(id);Bridge bridge=bridge(id);PackingTraceService.publicSource(bridge);
         for(Long itemId:request.getItemIds())if(!id.equals(evidence.packingForItem(itemId)))throw new IllegalArgumentException("所选码不属于本包装或没有访问权限。");
@@ -87,7 +113,8 @@ public class PackingEvidenceService {
         if(job!=null){if(!hash.equalsIgnoreCase(job.getPayloadHash())||!HashUtils.hashCanonicalTextHex(job.getPayloadJson()).equalsIgnoreCase(job.getPayloadHash()))throw new IllegalArgumentException("原存证内容与当前资料不一致，禁止覆盖。");return job;}
         job=new Job();job.setPackingId(packing);job.setBusinessType(type);job.setBusinessId(business);job.setPayloadJson(json);job.setPayloadHash(hash);job.setChainStatus("NOT_SUBMITTED");evidence.insertJob(job);return job;
     }
-    private boolean run(Job job,String token) {
+    private boolean run(Job job,String token) { return run(job,token,true); }
+    private boolean run(Job job,String token,boolean allowSend) {
         tx.execute(s->{locked(job.getPackingId(),token);return null;});
         Map<String,Object> body=map(job.getPayloadJson());boolean batch="BATCH_REGISTER".equals(job.getBusinessType());
         ProductBatchEntity lot=batches.findById(bridge(job.getPackingId()).getBatchId());
@@ -104,6 +131,7 @@ public class PackingEvidenceService {
             if(!definitive)return state(job,token,"UNCERTAIN","RECONCILE_REQUIRED");
         }
         if("CONFIRMED".equals(job.getChainStatus()))return state(job,token,"UNCERTAIN","CHAIN_RECORD_MISSING");
+        if(!allowSend)return state(job,token,"UNCERTAIN","RECONCILE_REQUIRED");
         ChainTransactionEntity pending=tx.execute(s->{locked(job.getPackingId(),token);ChainTransactionEntity p=transactions.createPending(job.getBusinessType(),job.getBusinessId(),HashUtils.hashBusinessIdHex(batch?lot.getBatchCode():item.getTraceCodePlain()),config.getAgriTraceAddress(),batch?"BatchRegistered":"ItemBound",job.getPayloadHash(),HashUtils.hashCanonicalTextPlainHex(job.getPayloadJson()));job.setTxId(p.getId());job.setChainStatus("PENDING");job.setErrorCode(null);evidence.updateJob(job);businessStatus(job,"PENDING");return p;});
         ChainTxResult result;
         try {
@@ -113,7 +141,7 @@ public class PackingEvidenceService {
         if(result==null||result.getChainStatus()==null)return state(job,token,"UNCERTAIN","CHAIN_RESULT_UNKNOWN");
         final ChainTxResult receipt=result;
         tx.execute(s->{locked(job.getPackingId(),token);transactions.completeFromResult(pending,receipt);return null;});
-        if(result.getChainStatus()==ChainStatus.CONFIRMED)return run(job,token);
+        if(result.getChainStatus()==ChainStatus.CONFIRMED)return run(job,token,allowSend);
         if(result.getChainStatus()==ChainStatus.CHAIN_DISABLED)return state(job,token,"CHAIN_DISABLED","CHAIN_DISABLED");
         boolean known=result.getReceiptStatus()!=null&&!result.getReceiptStatus().isBlank();
         return state(job,token,known?"FAILED":"UNCERTAIN",known?"TRANSACTION_FAILED":"CHAIN_RESULT_UNKNOWN");

@@ -12,6 +12,7 @@ public interface CirculationEvidenceMapper {
     @Select("SELECT id FROM transport_shipment WHERE id=#{id} FOR UPDATE") Long lockShipment(Long id);
     @Select("SELECT * FROM item_circulation_evidence WHERE item_id=#{id} ORDER BY version DESC LIMIT 1") CirculationEvidenceEntity latest(Long id);
     @Select("SELECT * FROM item_circulation_evidence WHERE id=#{id}") CirculationEvidenceEntity find(Long id);
+    @Select("SELECT * FROM item_circulation_evidence WHERE id=#{id} FOR UPDATE") CirculationEvidenceEntity lockFrozen(Long id);
     @Select("SELECT * FROM item_circulation_evidence WHERE item_id=#{item} AND version=#{version}") CirculationEvidenceEntity byVersion(@Param("item")Long item,@Param("version")int version);
     @Select("SELECT * FROM item_circulation_evidence WHERE item_id=#{id} ORDER BY version DESC LIMIT 50") List<CirculationEvidenceEntity> versions(Long id);
     @Insert("INSERT INTO item_circulation_evidence(item_id,version,manifest_json,manifest_hash,previous_hash,event_id,created_by) VALUES(#{itemId},#{version},#{manifestJson},#{manifestHash},#{previousHash},#{eventId},#{createdBy})") @Options(useGeneratedKeys=true,keyProperty="id") int insert(CirculationEvidenceEntity record);

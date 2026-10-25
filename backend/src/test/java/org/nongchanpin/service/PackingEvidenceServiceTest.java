@@ -50,6 +50,8 @@ class PackingEvidenceServiceTest {
         doAnswer(c->{Snapshot s=snapshots.get(c.getArgument(0));s.setLeaseToken(c.getArgument(1));s.setLeaseUntil(c.getArgument(2));return 1;}).when(evidence).claim(any(),any(),any());
         doAnswer(c->{Snapshot s=snapshots.get(c.getArgument(0));if(Objects.equals(s.getLeaseToken(),c.getArgument(1))){s.setLeaseToken(null);s.setLeaseUntil(null);}return 1;}).when(evidence).release(any(),any());
         when(evidence.job(any(),any())).thenAnswer(c->jobs.get(c.getArgument(0)+":"+c.getArgument(1)));
+        when(evidence.findJob(anyLong())).thenAnswer(c->jobs.values().stream().filter(j->j.getId().equals(c.getArgument(0))).findFirst().orElse(null));
+        when(evidence.lockJob(anyLong())).thenAnswer(c->evidence.findJob(c.getArgument(0)));
         doAnswer(c->{Job j=c.getArgument(0);j.setId((long)jobs.size()+1);jobs.put(j.getBusinessType()+":"+j.getBusinessId(),j);return 1;}).when(evidence).insertJob(any());
         when(evidence.jobs(9L)).thenAnswer(c->new ArrayList<>(jobs.values()));
         when(transactions.createPending(any(),any(),any(),any(),any(),any(),any())).thenAnswer(c->{ChainTransactionEntity t=new ChainTransactionEntity();t.setId((long)txs.size()+1);t.setChainStatus("PENDING");txs.put(t.getId(),t);return t;});
@@ -61,6 +63,24 @@ class PackingEvidenceServiceTest {
         when(chain.bindItem(any())).thenAnswer(c->{BindItemCommand command=c.getArgument(0);chainRecords.put("item",HashUtils.hashCanonicalJsonHex(command.getPayload()));return receipt();});
     }
     @AfterEach void clear(){AccessContext.clear();}
+    @Test void reconciliationRecordsExistingEvidenceWithoutCreatingIntentOrSending() {
+        service.submit(9L,request());Job row=jobs.get("ITEM_BIND:40");row.setChainStatus("UNCERTAIN");
+        clearInvocations(chain,transactions);service.reconcileFrozen(row.getId(),row.getPayloadHash(),row.getTxId());
+        assertEquals("CONFIRMED",row.getChainStatus());verify(chain,never()).bindItem(any());verify(chain,never()).registerBatch(any());verify(transactions,never()).createPending(any(),any(),any(),any(),any(),any(),any());
+    }
+    @Test void reconciliationNeverSendsEvenWhenDisabledIntentCouldNormallyRetry() {
+        doReturn(ChainTxResult.disabled("0xcontract","disabled")).when(chain).registerBatch(any());service.submit(9L,request());
+        Job row=jobs.get("BATCH_REGISTER:20");clearInvocations(chain,transactions);
+        service.reconcileFrozen(row.getId(),row.getPayloadHash(),row.getTxId());
+        assertEquals("UNCERTAIN",row.getChainStatus());verify(chain,never()).registerBatch(any());verify(chain,never()).bindItem(any());verify(transactions,never()).createPending(any(),any(),any(),any(),any(),any(),any());
+    }
+    @Test void reconciliationRechecksIntentFromLockedRowInsteadOfObservedCopy() {
+        service.submit(9L,request());Job original=jobs.get("ITEM_BIND:40");Job changed=new Job();
+        org.springframework.beans.BeanUtils.copyProperties(original,changed);changed.setTxId(999L);
+        when(evidence.lockJob(original.getId())).thenReturn(changed);clearInvocations(chain,transactions);
+        assertThrows(IllegalArgumentException.class,()->service.reconcileFrozen(original.getId(),original.getPayloadHash(),original.getTxId()));
+        verify(chain,never()).bindItem(any());verify(transactions,never()).createPending(any(),any(),any(),any(),any(),any(),any());
+    }
     private ChainTxResult receipt(){ChainTxResult r=new ChainTxResult();r.setChainStatus(ChainStatus.CONFIRMED);r.setSuccess(true);r.setReceiptStatus("0");return r;}
     private SubmitPackingEvidenceRequest request(){SubmitPackingEvidenceRequest r=new SubmitPackingEvidenceRequest();r.setExpectedManifestHash((String)service.preview(9L).get("manifestHash"));r.setItemIds(List.of(40L));return r;}
     @Test void previewIsReadOnlyAndSubmissionPersistsIntentBeforeCallingChain() {

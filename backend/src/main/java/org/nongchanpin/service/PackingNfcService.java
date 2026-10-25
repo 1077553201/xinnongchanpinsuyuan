@@ -81,6 +81,19 @@ public class PackingNfcService {
         return detail(itemId,null,null,null);
     }
 
+    public void reconcileFrozen(Long id,String expectedHash,Long expectedTx) {
+        AccessContext.write();String token=UUID.randomUUID().toString();
+        PackingNfcOperation row=tx.execute(s->{
+            PackingNfcOperation observed=operations.find(id);if(observed==null)throw new IllegalArgumentException("NFC 操作不存在。");
+            Bridge bridge=access(observed.getItemId());packing.lock(bridge.getPackingId());
+            PackingNfcOperation saved=operations.lockFrozen(id);validate(saved);
+            ReconciliationGuard.check(saved.getPayloadHash(),saved.getTxId(),expectedHash,expectedTx);
+            PackingNfcOperation bind=operations.operation(saved.getItemId(),"BIND");
+            if(bind.getLeaseUntil()!=null&&bind.getLeaseUntil().isAfter(LocalDateTime.now()))throw new IllegalArgumentException("原操作仍在处理中。");
+            operations.claim(saved.getItemId(),token,LocalDateTime.now().plusMinutes(5));return saved;
+        });
+        try{run(row,token,false);}finally{tx.execute(s->{operations.release(row.getItemId(),token);return null;});}
+    }
     private PackingNfcOperation prepare(Long itemId,PackingNfcRequest request,String token) {
         Bridge bridge=access(itemId);packing.lock(bridge.getPackingId());
         PackingNfcOperation bind=operations.operation(itemId,"BIND");
@@ -157,7 +170,8 @@ public class PackingNfcService {
         return HashUtils.hashBusinessIdPlainHex(normalized);
     }
 
-    private void run(PackingNfcOperation row,String token) {
+    private void run(PackingNfcOperation row,String token) { run(row,token,true); }
+    private void run(PackingNfcOperation row,String token,boolean allowSend) {
         tx.execute(s->{locked(row,token);return null;});validate(row);
         NfcTagEntity tag=tags.findById(row.getTagId());
         TraceItemEntity item=items.findById(row.getItemId());
@@ -193,6 +207,7 @@ public class PackingNfcService {
             if(!retry){state(row,token,"UNCERTAIN","RECONCILE_REQUIRED");return;}
         }
         if("CONFIRMED".equals(row.getChainStatus())){state(row,token,"UNCERTAIN","CHAIN_RECORD_MISSING");return;}
+        if(!allowSend){state(row,token,"UNCERTAIN","RECONCILE_REQUIRED");return;}
         ChainTransactionEntity pending=tx.execute(s->{
             locked(row,token);
             ChainTransactionEntity intent=transactions.createPending("PACKING_NFC_"+row.getOperation(),row.getId(),
@@ -215,7 +230,7 @@ public class PackingNfcService {
         if(result==null||result.getChainStatus()==null){state(row,token,"UNCERTAIN","CHAIN_RESULT_UNKNOWN");return;}
         final ChainTxResult receipt=result;
         tx.execute(s->{locked(row,token);transactions.completeFromResult(pending,receipt);return null;});
-        if(result.getChainStatus()==ChainStatus.CONFIRMED){run(row,token);return;}
+        if(result.getChainStatus()==ChainStatus.CONFIRMED){run(row,token,allowSend);return;}
         if(result.getChainStatus()==ChainStatus.CHAIN_DISABLED){state(row,token,"CHAIN_DISABLED","CHAIN_DISABLED");return;}
         boolean known=result.getReceiptStatus()!=null&&!result.getReceiptStatus().isBlank();
         state(row,token,known?"FAILED":"UNCERTAIN",known?"TRANSACTION_FAILED":"CHAIN_RESULT_UNKNOWN");
@@ -281,7 +296,7 @@ public class PackingNfcService {
         if(saved==null)throw new IllegalArgumentException("请先冻结并核对生产来源证据。");
         PackingEvidenceService.validate(saved,bridge);return saved;
     }
-    private void validate(PackingNfcOperation row) {
+    void validate(PackingNfcOperation row) {
         Bridge bridge=packing.publicBridge(row.getItemId());PackingEvidenceModels.Snapshot saved=snapshot(bridge);
         NfcTagEntity tag=tags.findById(row.getTagId());TraceItemEntity item=items.findById(row.getItemId());
         Map<String,Object> body=map(row.getPayloadJson());
