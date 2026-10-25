@@ -5,6 +5,7 @@ import GlassPanel from '@/components/GlassPanel.vue'
 import ResourceState from '@/components/ResourceState.vue'
 import AppDialog from '@/components/AppDialog.vue'
 import PackingCodesPanel from '@/components/PackingCodesPanel.vue'
+import SourceQualityPanel from '@/components/SourceQualityPanel.vue'
 import { useAuth } from '@/composables/useAuth'
 import { useAsyncResource } from '@/composables/useAsyncResource'
 import { listCycles, listPlots } from '@/api/production'
@@ -26,6 +27,7 @@ const mode = ref<'harvest' | 'grade' | 'packing' | 'reconcile' | null>(null)
 const title = computed(() => ({ harvest: '登记实际采收', grade: '登记分级或损耗', packing: '登记实际包装', reconcile: '完成分级数量核对' })[mode.value ?? 'harvest'])
 const notice = ref(''), error = ref(''), busy = ref(false), uncertain = ref(false)
 const codesPacking = ref<number>(), codesBusy = ref(false)
+const qualitySource = ref<{ scope: 'HARVEST' | 'PACKING'; id: number } | null>(null), qualityBusy = ref(false)
 const draft = reactive({ code: '', at: '', quantity: '', unit: 'kg', performer: '', notes: '', kind: 'SALEABLE', gradeName: '', location: '', reason: '', gradeId: '', count: '', packageUnit: '', netWeight: '', key: '' })
 const gradeOptions = computed(() => (detail.data.value?.grades ?? []).filter(grade => grade.kind === 'SALEABLE' && grade.weightKg > grade.packedKg))
 const packingSource = computed(() => gradeOptions.value.find(grade => grade.id === Number(draft.gradeId)))
@@ -65,6 +67,7 @@ async function save() {
 
 <template>
   <div class="management stack">
+    <AppDialog :open="!!qualitySource" title="来源质检报告与附件" :busy="qualityBusy" @close="qualitySource = null"><SourceQualityPanel v-if="qualitySource" :key="`${qualitySource.scope}-${qualitySource.id}`" :scope="qualitySource.scope" :source-id="qualitySource.id" @busy="qualityBusy = $event" /></AppDialog>
     <AppDialog :open="!!codesPacking" title="包装来源与单品赋码" :busy="codesBusy" @close="codesPacking = undefined"><PackingCodesPanel v-if="codesPacking" :key="codesPacking" :packing-id="codesPacking" @busy="codesBusy = $event" /></AppDialog>
     <GlassPanel padded="large" class="stack">
       <div class="section-head"><div><p class="eyebrow">从这一轮种植，接住每一次收获</p><h2 class="display intro-title">先称清采收，再核对分级与包装。</h2></div><button class="action-button" :disabled="lots.loading.value || !cycle" @click="refresh">刷新采收</button></div>
@@ -86,6 +89,7 @@ async function save() {
       <ResourceState :loading="detail.loading.value" :error="detail.error.value" @retry="detail.load">
         <template v-if="current">
           <div class="section-head"><div><p class="eyebrow">采收来源档案</p><h2 class="display source-title">{{ current.lotCode }}</h2></div><div v-if="auth.canWrite.value" class="actions"><template v-if="current.status === 'OPEN'"><button class="action-button" @click="open('grade')">登记分级或损耗</button><button class="action-button primary" @click="open('reconcile')">完成分级核对</button></template><button v-else class="action-button primary" :disabled="!gradeOptions.length" @click="open('packing')">登记实际包装</button></div></div>
+          <div class="actions"><button class="action-button" @click="qualitySource = { scope: 'HARVEST', id: current.id }">查看采收质检报告与附件</button></div>
           <dl class="detail-grid"><div><dt>来源地块 / 品种</dt><dd>{{ plotMap.get(cycle.plotId)?.plotName }} · {{ cycle.productName }} / {{ cycle.variety }}</dd></div><div><dt>实际采收 / 采收人员</dt><dd>{{ formatDateTime(current.harvestedAt) }} · {{ current.performerName }}</dd></div><div><dt>录入人 / 录入时间</dt><dd>{{ current.recorderName }} · {{ formatDateTime(current.recordedAt) }}</dd></div><div><dt>采收说明</dt><dd class="pre-wrap">{{ current.notes || '未填写' }}</dd></div></dl>
           <div class="balance-grid"><div><span>实际采收净重</span><strong>{{ kg(current.weightKg) }} kg</strong></div><div><span>待分级核对</span><strong>{{ kg(current.weightKg - current.allocatedKg) }} kg</strong></div><div><span>可用等级未包装</span><strong>{{ kg(current.allocatedKg - current.lossKg - current.packedKg) }} kg</strong></div><div><span>损耗 / 已包装</span><strong>{{ kg(current.lossKg) }} / {{ kg(current.packedKg) }} kg</strong></div></div>
           <h3 class="display">分级与损耗 · 最多 200 条</h3>
@@ -93,7 +97,7 @@ async function save() {
           <div v-else class="table-scroll"><table class="data-table"><thead><tr><th>类型 / 等级 / 重量</th><th>待包装 / 位置</th><th>实际时间 / 人员</th><th>原因 / 录入</th></tr></thead><tbody><tr v-for="grade in detail.data.value?.grades" :key="grade.id"><td>{{ grade.kind === 'LOSS' ? '损耗' : '可用等级' }} · {{ grade.gradeName }}<p>{{ kg(grade.weightKg) }} kg</p></td><td>{{ grade.kind === 'LOSS' ? '不可用于包装' : `${kg(grade.weightKg - grade.packedKg)} kg` }}<p>{{ grade.location || '—' }}</p></td><td>{{ formatDateTime(grade.handledAt) }}<p>{{ grade.performerName }}</p></td><td class="pre-wrap">{{ grade.reason || '未填写' }}<p class="muted">{{ grade.recorderName }} · {{ formatDateTime(grade.recordedAt) }}</p></td></tr></tbody></table></div>
           <h3 class="display">实际包装 · 最近 200 批</h3><p class="muted small">一批包装仅来自一个采收等级；箱、袋等数量按实际单件净重核算。包装保存不等于入库、销售、赋码或已上链。</p>
           <p v-if="!detail.data.value?.packings.length" class="muted">尚无实际包装记录。</p>
-          <div v-else class="table-scroll"><table class="data-table"><thead><tr><th>包装批次 / 来源等级</th><th>件数 × 单件净重</th><th>实际时间 / 人员</th><th>存放位置 / 说明</th></tr></thead><tbody><tr v-for="pack in detail.data.value?.packings" :key="pack.id"><td>{{ pack.packingCode }}<p><RouterLink :to="{ path: '/admin/inventory', query: { cycle: cycle.id, packing: pack.id } }" class="text-button">查看库存与办理 →</RouterLink></p><p><button type="button" class="text-button" @click="codesPacking = pack.id">查看来源与包装赋码 →</button></p><p>{{ pack.gradeName }} · 来源 #{{ pack.gradeId }}</p></td><td>{{ pack.packageCount }} {{ pack.packageUnit }} × {{ kg(pack.netWeightKg) }} kg<p>合计 {{ kg(pack.totalWeightKg) }} kg</p></td><td>{{ formatDateTime(pack.packedAt) }} · {{ pack.performerName }}<p class="muted">录入 {{ pack.recorderName }} · {{ formatDateTime(pack.recordedAt) }}</p></td><td class="pre-wrap">{{ pack.location }}<p>{{ pack.notes || '未填写说明' }}</p></td></tr></tbody></table></div>
+          <div v-else class="table-scroll"><table class="data-table"><thead><tr><th>包装批次 / 来源等级</th><th>件数 × 单件净重</th><th>实际时间 / 人员</th><th>存放位置 / 说明</th></tr></thead><tbody><tr v-for="pack in detail.data.value?.packings" :key="pack.id"><td>{{ pack.packingCode }}<p><RouterLink :to="{ path: '/admin/inventory', query: { cycle: cycle.id, packing: pack.id } }" class="text-button">查看库存与办理 →</RouterLink></p><p><button type="button" class="text-button" @click="codesPacking = pack.id">查看来源与包装赋码 →</button></p><p><button type="button" class="text-button" @click="qualitySource = { scope: 'PACKING', id: pack.id }">查看包装质检报告与附件 →</button></p><p>{{ pack.gradeName }} · 来源 #{{ pack.gradeId }}</p></td><td>{{ pack.packageCount }} {{ pack.packageUnit }} × {{ kg(pack.netWeightKg) }} kg<p>合计 {{ kg(pack.totalWeightKg) }} kg</p></td><td>{{ formatDateTime(pack.packedAt) }} · {{ pack.performerName }}<p class="muted">录入 {{ pack.recorderName }} · {{ formatDateTime(pack.recordedAt) }}</p></td><td class="pre-wrap">{{ pack.location }}<p>{{ pack.notes || '未填写说明' }}</p></td></tr></tbody></table></div>
         </template>
       </ResourceState>
     </GlassPanel>

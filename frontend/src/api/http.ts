@@ -73,3 +73,7 @@ export function get<T>(url: string, params?: Record<string, unknown>): Promise<T
 export function post<T>(url: string, data?: unknown, timeout = 15000): Promise<T> {
   return request<T>({ method: 'POST', url, data, timeout })
 }
+
+export function postMultipart<T>(url: string, data: FormData): Promise<T> {
+  return request<T>({ method: 'POST', url, data, timeout: 60000, headers: { 'Content-Type': undefined } })
+}

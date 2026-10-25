@@ -41,6 +41,7 @@ public class PublicTraceQueryService {
     private final PublicChainVerifier publicChainVerifier;
     private final ItemCirculationService itemCirculationService;
     private final CirculationEvidenceService circulationEvidenceService;
+    private final SourceQualityService sourceQualityService;
 
     @org.springframework.transaction.annotation.Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public PublicTraceView getTrace(String traceCode) {
@@ -66,7 +67,8 @@ public class PublicTraceQueryService {
         view.setNfc(toNfc(nfc));
         view.setTimeline(toEvents(events));
         if(bridge!=null)view.setTimeline(List.of());
-        view.setQualityReports(toQualities(qualityReportMapper.findForTrace(item.getId(), item.getBatchId())));
+        if(bridge==null)view.setQualityReports(toQualities(qualityReportMapper.findForTrace(item.getId(), item.getBatchId())));
+        else {view.setQualityReports(List.of());view.setPackingQuality(sourceQualityService.publicReports(bridge.getPackingId(),traceCode));}
         view.setEnvironmentSummary(toEnvironment(iotDataWindowMapper.findRecentForBatch(item.getBatchId())));
         PublicTraceView.ChainVerification verification = verify(product, batch, item, events);
         Map<String, String> expected = new LinkedHashMap<>();

@@ -10,6 +10,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    @ResponseStatus(HttpStatus.PAYLOAD_TOO_LARGE)
+    public CommonResponse handleLargeUpload(Exception ex) { return new CommonResponse("413", "附件不能超过 5 MB，请缩小后重新选择。", null); }
+    @ExceptionHandler({org.springframework.web.multipart.support.MissingServletRequestPartException.class,org.springframework.web.multipart.MultipartException.class})
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public CommonResponse handleMultipart(Exception ex) { return new CommonResponse("400", "请一并提交报告资料和有效附件。", null); }
     @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public CommonResponse handleMalformedRequest(org.springframework.http.converter.HttpMessageNotReadableException ex) {
@@ -30,7 +36,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DuplicateKeyException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public CommonResponse handleDuplicate(DuplicateKeyException ex) {
-        return new CommonResponse("409", "business code already exists", null);
+        return new CommonResponse("409", "业务编码或相同资料已存在，请刷新核对原记录。", null);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

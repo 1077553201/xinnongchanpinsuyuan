@@ -1,0 +1,67 @@
+package org.nongchanpin.service;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+import java.nio.charset.StandardCharsets;
+import java.time.*;
+import java.util.*;
+import org.junit.jupiter.api.*;
+import org.nongchanpin.mapper.*;
+import org.nongchanpin.model.dto.SourceQualityRequests.*;
+import org.nongchanpin.model.entity.*;
+import org.nongchanpin.model.entity.SourceQualityModels.*;
+import org.nongchanpin.security.*;
+import org.nongchanpin.util.HashUtils;
+import org.springframework.mock.web.MockMultipartFile;
+
+class SourceQualityServiceTest {
+    private final SourceQualityMapper mapper=mock(SourceQualityMapper.class);
+    private final TraceItemMapper items=mock(TraceItemMapper.class);
+    private final PackingTraceMapper packing=mock(PackingTraceMapper.class);
+    private final SourceQualityService service=new SourceQualityService(mapper,items,packing,new PayloadService(),mock(AuditService.class));
+    private final Map<Long,Report> rows=new LinkedHashMap<>();
+    private final Map<Long,Attachment> files=new HashMap<>();
+    private final Actor actor=new Actor();
+    private final Source harvest=new Source(),source=new Source();
+    @BeforeEach void setup(){
+        actor.setId(1L);actor.setOrganizationId(3L);actor.setRole("MANAGER");actor.setDisplayName("PRIVATE-UPLOADER");AccessContext.set(actor);
+        for(Source s:List.of(harvest,source)){s.setOrganizationId(3L);s.setHarvestId(17L);s.setHarvestCode("HARVEST-QA");s.setHarvestedAt(LocalDate.now().minusDays(2).atStartOfDay());s.setCycleCode("CYCLE-QA");}
+        source.setPackingId(223L);source.setPackingCode("PACK-QA");source.setPackedAt(LocalDate.now().minusDays(1).atStartOfDay());when(mapper.harvest(17L)).thenReturn(harvest);when(mapper.packing(223L)).thenReturn(source);
+        when(mapper.report(anyLong())).thenAnswer(c->rows.get(c.getArgument(0)));when(mapper.lock(anyLong())).thenAnswer(c->rows.get(c.getArgument(0)));when(mapper.byRequest(any())).thenAnswer(c->rows.values().stream().filter(r->r.getRequestKey().equals(c.getArgument(0))).findFirst().orElse(null));
+        doAnswer(c->{Report r=c.getArgument(0);r.setId((long)rows.size()+1);r.setStatus("DRAFT");r.setRecordedAt(LocalDateTime.now());rows.put(r.getId(),r);return 1;}).when(mapper).insert(any());
+        doAnswer(c->{Attachment a=new Attachment();a.setContent(c.getArgument(1));files.put(c.getArgument(0),a);return 1;}).when(mapper).attachment(any(),any());when(mapper.content(any())).thenAnswer(c->files.get(c.getArgument(0)));
+        doAnswer(c->{Report r=c.getArgument(0);r.setStatus("PUBLISHED");r.setPublishedAt(LocalDateTime.now());return 1;}).when(mapper).publish(any());
+        doAnswer(c->{Report r=c.getArgument(0);r.setStatus("WITHDRAWN");r.setAttachmentPublic(false);r.setWithdrawnAt(LocalDateTime.now());return 1;}).when(mapper).withdraw(any());
+        when(mapper.list(any(),any(),anyLong())).thenAnswer(c->new ArrayList<>(rows.values()));when(mapper.count(any(),any())).thenAnswer(c->(long)rows.size());
+        when(mapper.publicReports(any(),any())).thenAnswer(c->rows.values().stream().filter(r->r.getPublishedAt()!=null).collect(java.util.stream.Collectors.toList()));when(mapper.publicCount(any(),any())).thenAnswer(c->rows.values().stream().filter(r->r.getPublishedAt()!=null).count());
+        TraceItemEntity item=new TraceItemEntity();item.setId(38L);when(items.findByTraceCodeHash(HashUtils.hashBusinessIdPlainHex("CODE"))).thenReturn(item);PackingTraceModels.Bridge bridge=new PackingTraceModels.Bridge();bridge.setPackingId(223L);when(packing.publicBridge(38L)).thenReturn(bridge);
+    }
+    @AfterEach void clear(){AccessContext.clear();}
+    private Create request(){Create r=new Create();r.setReportNo("QA-REPORT");r.setAgencyName("报告记载机构");r.setSampledOn(LocalDate.now());r.setCheckedOn(LocalDate.now());r.setDeclaredResult("PASS");r.setRequestKey("00000000-0000-4000-8000-000000000001");return r;}
+    private byte[] bytes(){return "%PDF-1.4\nQA TEST CONTENT\n%%EOF".getBytes(StandardCharsets.US_ASCII);}
+    private MockMultipartFile file(){return new MockMultipartFile("attachment","PRIVATE-report.pdf","application/pdf","%PDF-1.4\nQA TEST CONTENT\n%%EOF".getBytes(StandardCharsets.US_ASCII));}
+    private Report create(){return service.create("PACKING",223L,request(),file());}
+    private Publish publish(Report r,boolean file){Publish p=new Publish();p.setExpectedManifestHash(r.getManifestHash());p.setMetadataReviewed(true);p.setPublishAttachment(file);p.setAttachmentPrivacyReviewed(file);return p;}
+    private Withdraw withdraw(){Withdraw r=new Withdraw();r.setReason("PRIVATE-WITHDRAW-REASON");return r;}
+    @Test void registersAttachmentAndImmutableSourceWithoutPublishing(){Report r=create();assertEquals("DRAFT",r.getStatus());assertFalse(r.isAttachmentPublic());assertEquals(223L,r.getPackingId());assertEquals(17L,r.getHarvestId());assertEquals(QualityFileSupport.digest(bytes()),r.getFileSha256());assertArrayEquals(bytes(),files.get(r.getId()).getContent());verify(mapper,never()).publish(any());verifyNoInteractions(items,packing);}
+    @Test void harvestReportHasExplicitHarvestScopeAndNoPacking(){Report r=service.create("HARVEST",17L,request(),file());assertNull(r.getPackingId());assertEquals("HARVEST",r.getScopeType());assertTrue(r.getManifestJson().contains("HARVEST-QA"));}
+    @Test void sameRequestReplaysWithoutDuplicatingFileAndChangedContentsReject(){Report r=create();assertEquals(r.getId(),create().getId());verify(mapper,times(1)).insert(any());verify(mapper,times(1)).attachment(any(),any());Create changed=request();changed.setDeclaredResult("FAIL");assertThrows(IllegalArgumentException.class,()->service.create("PACKING",223L,changed,file()));}
+    @Test void registrationReplayReturnsCurrentStateAfterPublicationAndWithdrawal(){Report r=create();service.publish(r.getId(),publish(r,false));assertEquals("PUBLISHED",create().getStatus());service.withdraw(r.getId(),withdraw());assertEquals("WITHDRAWN",create().getStatus());verify(mapper,times(1)).insert(any());verify(mapper,times(1)).attachment(any(),any());}
+    @Test void actorIsPartOfConfirmationContents(){create();actor.setId(2L);assertThrows(IllegalArgumentException.class,()->create());}
+    @Test void samplingAndCheckingDatesRespectActualSourceAndToday(){Create r=request();r.setSampledOn(LocalDate.now().minusDays(2));assertThrows(IllegalArgumentException.class,()->service.create("PACKING",223L,r,file()));r.setSampledOn(LocalDate.now());r.setCheckedOn(LocalDate.now().minusDays(1));assertThrows(IllegalArgumentException.class,()->service.create("PACKING",223L,r,file()));r.setCheckedOn(LocalDate.now().plusDays(1));assertThrows(IllegalArgumentException.class,()->service.create("PACKING",223L,r,file()));verify(mapper,never()).insert(any());}
+    @Test void inaccessibleOrInvalidSourceRejectsBeforeFileRead(){actor.setOrganizationId(8L);assertThrows(AccessException.class,()->service.create("PACKING",223L,request(),null));assertThrows(AccessException.class,()->service.list("PACKING",223L,1));assertThrows(IllegalArgumentException.class,()->service.list("UNKNOWN",223L,1));}
+    @Test void viewerMayReadOwnAttachmentButCannotRegisterPublishOrWithdraw(){Report r=create();actor.setRole("VIEWER");assertArrayEquals(bytes(),service.privateContent(r.getId()));service.list("PACKING",223L,1);assertThrows(AccessException.class,()->create());assertThrows(AccessException.class,()->service.publish(r.getId(),publish(r,false)));assertThrows(AccessException.class,()->service.withdraw(r.getId(),withdraw()));}
+    @Test void crossOrganizationCannotReadPrivateFileOrChangePublication(){Report r=create();actor.setOrganizationId(8L);assertThrows(AccessException.class,()->service.privateContent(r.getId()));assertThrows(AccessException.class,()->service.publish(r.getId(),publish(r,false)));assertThrows(AccessException.class,()->service.withdraw(r.getId(),withdraw()));}
+    @Test void publishRequiresCurrentDigestAndExplicitMetadataReview(){Report r=create();Publish wrong=publish(r,false);wrong.setExpectedManifestHash("0".repeat(64));assertThrows(IllegalArgumentException.class,()->service.publish(r.getId(),wrong));Publish unreviewed=publish(r,false);unreviewed.setMetadataReviewed(false);assertThrows(IllegalArgumentException.class,()->service.publish(r.getId(),unreviewed));assertEquals("DRAFT",r.getStatus());}
+    @Test void attachmentIsPrivateByDefaultAndNeedsSeparatePrivacyReview(){Report r=create();Publish p=publish(r,true);p.setAttachmentPrivacyReviewed(false);assertThrows(IllegalArgumentException.class,()->service.publish(r.getId(),p));service.publish(r.getId(),publish(r,false));assertThrows(AccessException.class,()->service.publicContent("CODE",r.getId()));assertFalse(service.publicReports(223L,"CODE").toString().contains("downloadPath"));}
+    @Test void uploadAndPublicationActorsAreRecordedSeparately(){Report r=create();actor.setId(2L);actor.setDisplayName("PRIVATE-REVIEWER");service.publish(r.getId(),publish(r,true));assertEquals(1L,r.getRecordedBy());assertEquals(2L,r.getPublishedBy());assertEquals("PRIVATE-UPLOADER",r.getRecorderName());assertEquals("PRIVATE-REVIEWER",r.getPublisherName());}
+    @Test void identicalPublicationReusesOriginalAndChangedScopeCannotOverwrite(){Report r=create();Publish p=publish(r,false);service.publish(r.getId(),p);service.publish(r.getId(),p);verify(mapper,times(1)).publish(any());assertThrows(IllegalArgumentException.class,()->service.publish(r.getId(),publish(r,true)));}
+    @Test void publishedPublicFileIsAvailableOnlyForMatchingSource(){Report r=create();service.publish(r.getId(),publish(r,true));assertArrayEquals(bytes(),(byte[])service.publicContent("CODE",r.getId()).get("content"));assertThrows(AccessException.class,()->service.publicContent("UNKNOWN",r.getId()));Source other=new Source();other.setOrganizationId(3L);other.setHarvestId(17L);when(mapper.packing(224L)).thenReturn(other);PackingTraceModels.Bridge wrong=new PackingTraceModels.Bridge();wrong.setPackingId(224L);when(packing.publicBridge(38L)).thenReturn(wrong);assertThrows(AccessException.class,()->service.publicContent("CODE",r.getId()));}
+    @Test void harvestSampleMayBeReadThroughItsOwnPackagingButNeverAnUnrelatedHarvest(){Report r=service.create("HARVEST",17L,request(),file());service.publish(r.getId(),publish(r,true));assertArrayEquals(bytes(),(byte[])service.publicContent("CODE",r.getId()).get("content"));source.setHarvestId(18L);assertThrows(AccessException.class,()->service.publicContent("CODE",r.getId()));}
+    @Test void draftAndPrivateAttachmentsDoNotBecomeAnonymousDownloads(){Report r=create();assertEquals(0L,service.publicReports(223L,"CODE").get("total"));assertThrows(AccessException.class,()->service.publicContent("CODE",r.getId()));}
+    @Test void withdrawnPublicReportRemainsVisibleWithOriginalFailureAndNoDownload(){Create input=request();input.setDeclaredResult("FAIL");Report r=service.create("PACKING",223L,input,file());service.publish(r.getId(),publish(r,true));service.withdraw(r.getId(),withdraw());Map<String,Object> result=service.publicReports(223L,"CODE");assertEquals(1L,result.get("total"));assertTrue(result.toString().contains("FAIL"));assertTrue(result.toString().contains("WITHDRAWN"));assertFalse(result.toString().contains("downloadPath"));assertThrows(AccessException.class,()->service.publicContent("CODE",r.getId()));assertArrayEquals(bytes(),service.privateContent(r.getId()));}
+    @Test void publicMetadataNeverLeaksUploaderFileNameOrWithdrawalNotes(){Report r=create();service.publish(r.getId(),publish(r,true));service.withdraw(r.getId(),withdraw());assertFalse(service.publicReports(223L,"CODE").toString().contains("PRIVATE"));}
+    @Test void withdrawalIsIdempotentAndCannotRepublishOrRewriteReason(){Report r=create();service.withdraw(r.getId(),withdraw());service.withdraw(r.getId(),withdraw());verify(mapper,times(1)).withdraw(any());assertNull(r.getPublishedAt());assertEquals(0L,service.publicReports(223L,"CODE").get("total"));assertThrows(IllegalArgumentException.class,()->service.publish(r.getId(),publish(r,false)));Withdraw changed=withdraw();changed.setReason("different");assertThrows(IllegalArgumentException.class,()->service.withdraw(r.getId(),changed));}
+    @Test void missingOrChangedAttachmentStopsDownloadAndPublication(){Report r=create();files.get(r.getId()).setContent(new byte[]{1});assertThrows(IllegalArgumentException.class,()->service.privateContent(r.getId()));assertThrows(IllegalArgumentException.class,()->service.publish(r.getId(),publish(r,true)));assertEquals("DRAFT",r.getStatus());}
+    @Test void changedReportMetadataCannotReuseItsOriginalDigest(){Report r=create();r.setReportNo("CHANGED");assertThrows(IllegalArgumentException.class,()->service.list("PACKING",223L,1));assertThrows(IllegalArgumentException.class,()->service.publish(r.getId(),publish(r,false)));}
+}

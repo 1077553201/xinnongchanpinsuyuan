@@ -3,6 +3,7 @@ import { computed, onScopeDispose, ref, watch } from 'vue'
 import GlassPanel from '@/components/GlassPanel.vue'
 import ProductionEvidencePanel from '@/components/ProductionEvidencePanel.vue'
 import CirculationVersionView from '@/components/CirculationVersionView.vue'
+import PackingQualityPanel from '@/components/PackingQualityPanel.vue'
 import MetricBar from '@/components/MetricBar.vue'
 import StatusChip from '@/components/StatusChip.vue'
 import TraceTimeline from '@/components/TraceTimeline.vue'
@@ -74,6 +75,7 @@ const sampledCount = computed(() => trace.value?.productionEvidence
   : environments.value.reduce((total, env) => total + (env.sampleCount ?? 0), 0))
 
 const qualitySummary = computed(() => {
+  if (trace.value?.productionSource) return trace.value.packingQuality?.total ? `公开记录 ${trace.value.packingQuality.total} 份` : '暂无公开报告'
   if (!reports.value.length) return '未上传'
   const assessments = reports.value.map((report) => qualityAssessment(report.result))
   if (assessments.some((result) => result.tone === 'bad')) return '存在不合格'
@@ -233,6 +235,7 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
         <p v-else-if="!trace.circulation" class="muted tiny">尚未建立本件产品的销售、运输及签收关联。生产农事请查看上方生产证据。</p>
       </GlassPanel>
 
+      <PackingQualityPanel v-if="trace.productionSource" :quality="trace.packingQuality" />
       <GlassPanel v-if="reports.length" padded="large" class="block">
         <header class="block-head">
           <h2 class="block-title display">质检报告</h2>

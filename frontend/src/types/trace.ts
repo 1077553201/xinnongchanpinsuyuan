@@ -93,6 +93,7 @@ export interface TraceAiStatus {
 }
 
 export interface PublicTraceView {
+  packingQuality?: import('@/api/sourceQuality').PackingQuality
   circulationEvidence?: import('@/api/circulationEvidence').PublicCirculationEvidence
   circulation?: import('@/api/itemCirculation').PublicCirculation
   productionEvidence?: import('@/api/packingEvidence').ProductionEvidence
