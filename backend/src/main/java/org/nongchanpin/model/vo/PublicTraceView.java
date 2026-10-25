@@ -16,6 +16,7 @@ public class PublicTraceView {
     private AiStatus ai;
     private java.util.Map<String,Object> productionSource;
     private java.util.Map<String,Object> productionEvidence;
+    private java.util.Map<String,Object> circulation;
 
     @Data
     public static class Product {

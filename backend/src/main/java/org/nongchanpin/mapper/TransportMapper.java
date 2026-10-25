@@ -21,6 +21,8 @@ public interface TransportMapper {
     @Select("SELECT * FROM transport_shipment WHERE dispatch_id=#{id}") Shipment byDispatch(Long id);
     @Select("SELECT * FROM transport_event WHERE shipment_id=#{id} ORDER BY id DESC LIMIT 200") List<Event> events(Long id);
     @Select("SELECT * FROM transport_event WHERE shipment_id=#{id} ORDER BY id DESC LIMIT 1") Event latest(Long id);
+    @Select("SELECT * FROM transport_event WHERE shipment_id=#{id} AND kind='RECEIVE' ORDER BY id DESC LIMIT 1") Event receipt(Long id);
+    @Select("SELECT kind,occurred_at FROM transport_event WHERE shipment_id=#{id} ORDER BY occurred_at DESC,id DESC LIMIT 201") List<Event> publicEvents(Long id);
     @Select("SELECT * FROM transport_event WHERE request_key=#{key}") Event eventByRequest(String key);
     @Insert("INSERT INTO transport_shipment (dispatch_id,shipment_code,carrier,tracking_reference,driver_name,driver_contact,recipient,delivery_address,notes,recorded_by,recorder_name,request_key,request_hash) VALUES (#{dispatchId},#{shipmentCode},#{carrier},#{trackingReference},#{driverName},#{driverContact},#{recipient},#{deliveryAddress},#{notes},#{recordedBy},#{recorderName},#{requestKey},#{requestHash})")
     @Options(useGeneratedKeys=true,keyProperty="id") int insert(Shipment shipment);

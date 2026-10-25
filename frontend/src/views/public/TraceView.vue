@@ -63,7 +63,12 @@ const environments = computed<TraceEnvironment[]>(() => {
 const reports = computed(() => trace.value?.qualityReports ?? [])
 const events = computed(() => trace.value?.timeline ?? [])
 
-const verdict = computed(() => traceVerdict(verification.value))
+const verdict = computed(() => {
+  const result = traceVerdict(verification.value)
+  return trace.value?.productionSource && result.tone === 'ok'
+    ? { ...result, headline: '生产来源摘要核验通过', detail: '本次核对范围为包装来源与生产证据。下方逐件销售、运输及收货记录尚未提交存证，不包含在此次链上核验中。此结果不替代产品质量检测。' }
+    : result
+})
 const sealAssessment = computed(() => ({
   tone: verdict.value.tone, label: verdict.value.headline, char: verdict.value.sealChar,
 }))
@@ -215,11 +220,20 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
       <GlassPanel padded="large" class="block">
         <header class="block-head">
           <h2 class="block-title display">{{ trace.productionSource ? '单品流转记录' : '农事历' }}</h2>
-          <span class="muted tiny">{{ events.length }} 条记录</span>
+          <span class="muted tiny">{{ trace.productionSource ? (trace.circulation ? '业务留档 · 未存证' : '尚未关联') : `${events.length} 条记录` }}</span>
         </header>
-        <p class="split-legend muted tiny">每条记录展示业务明细、保存的摘要及交易状态。</p>
+        <template v-if="trace.productionSource && trace.circulation">
+          <p class="split-legend muted tiny">逐件流转业务留档 · 尚未提交链上存证。上方生产证据的核验结果不包含以下流转记录。</p>
+          <dl class="source-facts"><div><dt>本件销售出库</dt><dd>{{ formatDateTime(trace.circulation.dispatchedAt) }}</dd></div><div><dt>包装码关联留档</dt><dd>{{ formatDateTime(trace.circulation.linkedAt) }}</dd></div><div><dt>本件收货结果</dt><dd>{{ trace.circulation.receiptOutcome === 'ACCEPTED' ? '已逐件核对实收' : trace.circulation.receiptOutcome === 'REJECTED' ? '已逐件核对拒收' : '待逐件核对，不据运输单汇总推断' }}</dd></div><div v-if="trace.circulation.receiptRecordedAt"><dt>收货核对留档</dt><dd>{{ formatDateTime(trace.circulation.receiptRecordedAt) }}</dd></div></dl>
+          <p v-if="trace.circulation.transportStatus === 'NOT_ARRANGED'" class="muted tiny">尚未安排本笔出库的运输。</p>
+          <p v-else-if="trace.circulation.transportStatus === 'PLANNED'" class="muted tiny">已安排运输，尚未登记实际发运。</p>
+          <ol class="circulation-events"><li v-for="(event,index) in trace.circulation.events" :key="index">{{ ({ DEPART: '实际发运', UPDATE: '运输进展留档', EXCEPTION: '运输异常留档', RECEIVE: '收货结果留档' } as Record<string,string>)[event.kind] || '运输记录' }} · {{ formatDateTime(event.occurredAt) }}</li></ol>
+          <p v-if="trace.circulation.eventsTruncated" class="muted tiny">仅展示最近 200 条运输记录。</p>
+          <p class="muted tiny">以上由经营方后台核对留档，尚非消费者身份核验或外部物流认证。</p>
+        </template>
+        <p v-else-if="!trace.productionSource" class="split-legend muted tiny">每条记录展示业务明细、保存的摘要及交易状态。</p>
         <TraceTimeline v-if="!trace.productionSource || events.length" :events="events" />
-        <p v-else class="muted tiny">尚未建立本件产品的销售、运输及签收关联。生产农事请查看上方生产证据。</p>
+        <p v-else-if="!trace.circulation" class="muted tiny">尚未建立本件产品的销售、运输及签收关联。生产农事请查看上方生产证据。</p>
       </GlassPanel>
 
       <GlassPanel v-if="reports.length" padded="large" class="block">

@@ -39,6 +39,7 @@ public class PublicTraceQueryService {
     private final PayloadService payloadService;
     private final ContractConfig contractConfig;
     private final PublicChainVerifier publicChainVerifier;
+    private final ItemCirculationService itemCirculationService;
 
     public PublicTraceView getTrace(String traceCode) {
         String traceCodeHash = HashUtils.hashBusinessIdPlainHex(traceCode);
@@ -57,6 +58,7 @@ public class PublicTraceQueryService {
         view.setItem(toItem(item));
         org.nongchanpin.model.entity.PackingTraceModels.Bridge bridge=traceItemMapper.packingSource(item.getId());
         view.setProductionSource(PackingTraceService.publicSource(bridge));
+        if(bridge!=null)view.setCirculation(itemCirculationService.publicView(item.getId()));
         org.nongchanpin.model.entity.PackingEvidenceModels.Snapshot evidence=traceItemMapper.packingEvidence(item.getId());
         if(evidence!=null){PackingEvidenceService.validate(evidence,bridge);view.setProductionEvidence(new LinkedHashMap<>((Map<String,Object>)payloadService.readJson(evidence.getManifestJson())));view.getProductionEvidence().put("manifestHash",evidence.getManifestHash());view.getProductionEvidence().put("capturedAt",evidence.getCreatedAt());}
         view.setNfc(toNfc(nfc));

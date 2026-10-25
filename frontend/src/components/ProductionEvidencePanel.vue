@@ -28,7 +28,7 @@ function value(key: string, raw: unknown) { if (raw == null) return '—'; if (k
       <button v-if="section.value.rows.length > (visible[section.key] ?? 20)" class="action-button" @click="visible[section.key] = (visible[section.key] ?? 20) + 20">继续查看本版记录</button>
       <p v-if="section.value.truncated" class="muted">本版最多纳入 {{ section.value.limit }} 条，不代表完整历史。</p>
     </details>
-    <p class="muted">尚未将具体包装码与销售出库、运输和签收逐件关联，此处不将同批其他货物的流转当作本件事实。摘要一致也不代替实物质量或设备身份验证。</p>
+    <p class="muted">本版生产证据不包含逐件销售、运输和收货。具体包装码的关联情况请查看产品查询页的单品流转记录；摘要一致也不代替实物质量或设备身份验证。</p>
     <p v-if="evidence.manifestHash" class="manifest-hash">证据摘要 {{ evidence.manifestHash }}</p>
   </GlassPanel>
 </template>
