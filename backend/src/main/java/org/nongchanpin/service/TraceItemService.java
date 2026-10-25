@@ -57,7 +57,12 @@ public class TraceItemService {
     }
 
     public List<TraceItemEntity> findAll() {
-        return traceItemMapper.findAll();
+        List<TraceItemEntity> items=traceItemMapper.findAll();
+        for(TraceItemEntity item:items) {
+            org.nongchanpin.model.entity.PackingTraceModels.Bridge bridge=traceItemMapper.packingSource(item.getId());
+            if(bridge!=null)item.setPackingId(bridge.getPackingId());
+        }
+        return items;
     }
 
     public TraceItemEntity get(Long id) {

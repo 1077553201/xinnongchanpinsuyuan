@@ -45,6 +45,13 @@ public class NfcService {
     }
 
     private void fillChainStatus(NfcTagEntity tag) {
+        org.nongchanpin.model.entity.PackingTraceModels.Bridge bridge=traceItemMapper.packingSource(tag.getItemId());
+        if(bridge!=null) {
+            tag.setPackingId(bridge.getPackingId());
+            String status=tag.getBindStatus();
+            tag.setChainStatus(status!=null&&status.contains(":")?status.substring(status.indexOf(':')+1):"NOT_SUBMITTED");
+            return;
+        }
         ChainTransactionEntity tx = chainTransactionService.findLatestByBusiness("ACTIVE".equals(tag.getStatus()) ? "NFC_BIND" : "NFC_DISABLE", tag.getId());
         if (tx != null) tag.setChainStatus(tx.getChainStatus());
     }
@@ -97,6 +104,7 @@ public class NfcService {
         if (tag == null) {
             throw new IllegalArgumentException("nfc tag not found");
         }
+        if(traceItemMapper.packingSource(tag.getItemId())!=null)throw new IllegalArgumentException("包装码标签须在来源包装页办理停用并保留回执。");
         if (!"ACTIVE".equals(tag.getStatus())) throw new IllegalArgumentException("nfc tag is already disabled");
         Map<String, Object> reason = payloadService.map();
         reason.put("nfcUidHash", tag.getUidHash());

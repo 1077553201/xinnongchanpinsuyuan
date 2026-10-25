@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS packing_nfc_operation (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    packing_id BIGINT NOT NULL,
+    item_id BIGINT NOT NULL,
+    tag_id BIGINT NOT NULL,
+    operation VARCHAR(16) NOT NULL,
+    payload_json MEDIUMTEXT NOT NULL,
+    payload_hash VARCHAR(64) NOT NULL,
+    private_reason VARCHAR(500),
+    chain_status VARCHAR(32) NOT NULL DEFAULT 'NOT_SUBMITTED',
+    tx_id BIGINT,
+    error_code VARCHAR(64),
+    recorded_by BIGINT NOT NULL,
+    recorded_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    lease_token VARCHAR(36),
+    lease_until DATETIME,
+    UNIQUE KEY uk_packing_nfc_action (item_id,operation),
+    CONSTRAINT ck_packing_nfc_action CHECK (operation IN ('BIND','DISABLE')),
+    CONSTRAINT ck_packing_nfc_payload CHECK (JSON_VALID(payload_json)),
+    CONSTRAINT fk_packing_nfc_item FOREIGN KEY (item_id) REFERENCES packing_trace_item(item_id),
+    CONSTRAINT fk_packing_nfc_tag FOREIGN KEY (tag_id) REFERENCES nfc_tag(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

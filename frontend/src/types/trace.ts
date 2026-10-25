@@ -93,6 +93,7 @@ export interface TraceAiStatus {
 }
 
 export interface PublicTraceView {
+  packingNfc?: import('@/api/packingNfc').NfcIdentity
   packingQuality?: import('@/api/sourceQuality').PackingQuality
   circulationEvidence?: import('@/api/circulationEvidence').PublicCirculationEvidence
   circulation?: import('@/api/itemCirculation').PublicCirculation

@@ -4,6 +4,7 @@ import GlassPanel from '@/components/GlassPanel.vue'
 import ProductionEvidencePanel from '@/components/ProductionEvidencePanel.vue'
 import CirculationVersionView from '@/components/CirculationVersionView.vue'
 import PackingQualityPanel from '@/components/PackingQualityPanel.vue'
+import PackingNfcIdentity from '@/components/PackingNfcIdentity.vue'
 import MetricBar from '@/components/MetricBar.vue'
 import StatusChip from '@/components/StatusChip.vue'
 import TraceTimeline from '@/components/TraceTimeline.vue'
@@ -172,6 +173,7 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
         <p class="source-hash">来源快照摘要：{{ trace.productionSource.sourceHash }}</p>
       </GlassPanel>
       <ProductionEvidencePanel v-if="trace.productionEvidence" :evidence="trace.productionEvidence" />
+      <GlassPanel v-if="trace.packingNfc" padded="large"><PackingNfcIdentity :identity="trace.packingNfc" /></GlassPanel>
       <GlassPanel :class="`verdict tone-${verdict.tone}`">
         <div class="verdict-main">
           <p class="verdict-headline">{{ verdict.headline }}</p>

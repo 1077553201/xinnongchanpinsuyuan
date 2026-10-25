@@ -75,6 +75,8 @@ export function chainStatusTone(status?: string): Tone {
 }
 
 export function nfcStatusLabel(status?: string): string {
+  if (status?.startsWith('BINDING')) return 'NFC 绑定待核对'
+  if (status?.startsWith('DISABLED:') && status !== 'DISABLED:CONFIRMED') return 'NFC 已登记停用，链状态待核对'
   if (status?.startsWith('DISABLED')) return 'NFC 标签已停用'
   if (status?.startsWith('BOUND')) return '已绑定 NFC 标签'
   if (status === 'UNBOUND') return '未绑定 NFC 标签'

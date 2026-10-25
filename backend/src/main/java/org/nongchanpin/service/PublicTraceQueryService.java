@@ -43,6 +43,7 @@ public class PublicTraceQueryService {
     private final CirculationEvidenceService circulationEvidenceService;
     private final SourceQualityService sourceQualityService;
     private final QualityEvidenceService qualityEvidenceService;
+    private final PackingNfcService packingNfcService;
 
     @org.springframework.transaction.annotation.Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public PublicTraceView getTrace(String traceCode) {
@@ -66,6 +67,7 @@ public class PublicTraceQueryService {
         org.nongchanpin.model.entity.PackingEvidenceModels.Snapshot evidence=traceItemMapper.packingEvidence(item.getId());
         if(evidence!=null){PackingEvidenceService.validate(evidence,bridge);view.setProductionEvidence(new LinkedHashMap<>((Map<String,Object>)payloadService.readJson(evidence.getManifestJson())));view.getProductionEvidence().put("manifestHash",evidence.getManifestHash());view.getProductionEvidence().put("capturedAt",evidence.getCreatedAt());}
         view.setNfc(toNfc(nfc));
+        if(bridge!=null)view.setPackingNfc(packingNfcService.publicState(item.getId()));
         view.setTimeline(toEvents(events));
         if(bridge!=null)view.setTimeline(List.of());
         if(bridge==null)view.setQualityReports(toQualities(qualityReportMapper.findForTrace(item.getId(), item.getBatchId())));

@@ -10,6 +10,7 @@ declare module 'vue-router' {
 
 const routes: RouteRecordRaw[] = [
   { path: '/', redirect: '/admin' },
+  { path: '/n/:uidHash', name: 'public-nfc', component: () => import('@/views/public/NfcResolveView.vue'), props: true, meta: { title: 'NFC 身份查询' } },
 
   {
     path: '/t/:traceCode',

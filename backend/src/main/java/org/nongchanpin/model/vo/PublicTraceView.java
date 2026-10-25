@@ -9,6 +9,7 @@ public class PublicTraceView {
     private Batch batch;
     private Item item;
     private Nfc nfc;
+    private java.util.Map<String,Object> packingNfc;
     private List<Event> timeline;
     private List<Quality> qualityReports;
     private List<Environment> environmentSummary;

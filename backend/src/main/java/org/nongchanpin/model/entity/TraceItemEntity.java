@@ -5,6 +5,7 @@ import lombok.Data;
 
 @Data
 public class TraceItemEntity {
+    private Long packingId;
     private Long id;
     private Long batchId;
     private String traceCodeHash;

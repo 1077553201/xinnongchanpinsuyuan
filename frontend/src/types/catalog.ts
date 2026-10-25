@@ -28,6 +28,7 @@ export interface ProductBatchEntity {
 }
 
 export interface TraceItemEntity {
+  packingId?: number
   id: number
   batchId: number
   traceCodeHash: string
@@ -61,6 +62,7 @@ export interface TraceEventEntity {
 }
 
 export interface NfcTagEntity {
+  packingId?: number
   chainStatus?: string
   id: number
   uidHash: string

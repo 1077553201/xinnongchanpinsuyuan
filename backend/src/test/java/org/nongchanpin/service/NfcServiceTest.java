@@ -14,6 +14,19 @@ import org.nongchanpin.model.entity.TraceItemEntity;
 
 class NfcServiceTest {
     @Test
+    void packingTagCannotBypassItsDedicatedDisableWorkflow() {
+        NfcTagMapper tags=mock(NfcTagMapper.class);
+        TraceItemMapper items=mock(TraceItemMapper.class);
+        ChainService chain=mock(ChainService.class);
+        ChainTransactionService transactions=mock(ChainTransactionService.class);
+        NfcService service=new NfcService(tags,items,chain,transactions,new ChainWriteSupport(transactions),new PayloadService(),new ContractConfig());
+        NfcTagEntity tag=new NfcTagEntity();tag.setItemId(40L);tag.setStatus("ACTIVE");
+        when(tags.findById(7L)).thenReturn(tag);
+        when(items.packingSource(40L)).thenReturn(new org.nongchanpin.model.entity.PackingTraceModels.Bridge());
+        assertThrows(IllegalArgumentException.class,()->service.disable(7L,new DisableNfcRequest()));
+        verifyNoInteractions(chain,transactions);verify(tags,never()).updateStatus(any(),any(),any());
+    }
+    @Test
     void existingBindingCannotBeReplacedByAnotherTag() {
         NfcTagMapper tags = mock(NfcTagMapper.class);
         TraceItemMapper items = mock(TraceItemMapper.class);

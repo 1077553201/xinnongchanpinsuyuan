@@ -19,6 +19,8 @@ const { nfcStatusLabel } = await loadTypeScript('../src/types/api.ts')
 test('NFC 绑定与停用同时显示清晰业务标签，保留未知状态边界', () => {
   assert.equal(nfcStatusLabel('BOUND:CONFIRMED'), '已绑定 NFC 标签')
   assert.equal(nfcStatusLabel('DISABLED:CONFIRMED'), 'NFC 标签已停用')
+  assert.equal(nfcStatusLabel('BINDING:UNCERTAIN'), 'NFC 绑定待核对')
+  assert.equal(nfcStatusLabel('DISABLED:PENDING'), 'NFC 已登记停用，链状态待核对')
   assert.equal(nfcStatusLabel(undefined), 'NFC 状态待确认')
 })
 

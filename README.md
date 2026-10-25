@@ -8,7 +8,7 @@
 - 单品：批量生成、二维码本地编码与打印、流转事件录入、公众查询。
 - 公众查询：实时读取批次/单品/事件链上摘要核验、事件完整性检查、召回提示和按批次展示环境快照。
 - IoT：网关/设备登记、近期读数与趋势、窗口摘要、告警、模拟上报和手动聚合。
-- NFC：UID 关联、标签查询、停用及链状态反馈；交易列表支持筛选和详情。
+- NFC：新包装码逐件 UID 关联、停用留档及回执恢复，公众标签入口实时核验后进入二维码对应的同一产品页；普通 UID 不代表防克隆。详见 [包装 NFC 说明](docs/PACKING_NFC_STAGE.md)。
 
 - 生产基础：地块登记、种植周期与历史、固定设备绑定和本轮监测；外观可切换晨光绿 / 柔光玻璃。
 - 账号权限：真实会话登录，管理员 / 生产人员 / 只读人员，所属机构范围及新生产操作审计。
@@ -73,7 +73,7 @@ mvn test
 
 ## 尚需独立完成
 
-当前剩余任务与下一轮推进顺序见 [下一阶段优化计划](docs/NEXT_OPTIMIZATION_PLAN.md)：逐项对应原阶段 0–5，区分核心未完成、按试点确定与后续扩展，并列出依赖及验收条件。来源赋码、生产/流转证据、质检资料附件及逐码质检版本存证已完成软件与授权 QA 联调；下一轮核对二维码/NFC 一致入口及权限，实地试点仍待验收。报告替代保留原件及历史版本，详见 [质检存证与替代说明](docs/QUALITY_EVIDENCE_STAGE.md)。
+当前剩余任务与下一轮推进顺序见 [下一阶段优化计划](docs/NEXT_OPTIMIZATION_PLAN.md)：逐项对应原阶段 0–5，区分核心未完成、按试点确定与后续扩展，并列出依赖及验收条件。来源赋码、生产/流转证据、逐码质检版本存证及新来源 NFC 入口已完成软件与授权 QA 联调；下一轮完善长期未知交易集中对账，真实标签及实地试点仍待验收。报告替代保留原件及历史版本，详见 [质检存证与替代说明](docs/QUALITY_EVIDENCE_STAGE.md)。
 
 业务方向与分期见 [生产到销售及 Agent 规划](docs/PRODUCTION_TO_SALES_AGENT_PLAN.md)。本轮新增地块登记、种植周期开启/结束和历史档案，管理台顶部可切换“晨光绿 / 柔光玻璃”，外观选择保存在本机浏览器。
 
@@ -102,7 +102,7 @@ mvn test
 
 第九批迁移 `database/migrations/009_agent_conversations.sql` 新增私有对话和消息两张表，可运行 `scripts/ApplyChatSchema.java`，先完成前八批迁移，不重置旧业务。模型配置见 [日常助手说明](docs/DAILY_ASSISTANT_STAGE.md)。
 
-第十批迁移 `database/migrations/010_packing_trace_codes.sql` 新增包装来源与赋码三张表，可运行 `scripts/ApplyPackingTraceSchema.java`。部署本版代码前先升级；旧码不自动补来源，新包装码不自动上链，NFC 与完整新业务证据后续接入。
+第十批迁移 `database/migrations/010_packing_trace_codes.sql` 新增包装来源与赋码三张表，可运行 `scripts/ApplyPackingTraceSchema.java`。旧码不自动补来源，新包装码不自动上链；后续生产、流转、质检及 NFC 增强还须依次完成相应迁移。
 
 第十一批迁移 `database/migrations/011_packing_evidence.sql` 新增生产证据和存证任务两张表，可运行 `scripts/ApplyPackingEvidenceSchema.java`。部署本版代码前先升级；确认提交后冻结本版记录，只有实时读链核对一致才显示生产证据摘要一致。
 
@@ -113,3 +113,5 @@ mvn test
 第十四批迁移 `database/migrations/014_source_quality_reports.sql` 新增来源质检资料与附件两张表，可运行 `scripts/ApplySourceQualitySchema.java`。附件最大 5 MB，原件保存于数据库并随数据库备份；原件与资料摘要不表示已上链或已验证检测机构。部署本版前升级，新包装码不自动继承旧报告表中的模糊批次记录。
 
 第十五批迁移 `database/migrations/015_quality_evidence.sql` 新增报告替代关系与逐码质检版本表，可运行 `scripts/ApplyQualityEvidenceSchema.java`。应先完成第十四批；保留已有报告、原件和生产/流转快照，无需重新部署合约。
+
+第十六批迁移 `database/migrations/016_packing_nfc.sql` 新增包装 NFC 操作历史表，可运行 `scripts/ApplyPackingNfcSchema.java`。先完成此前来源与生产证据迁移；保留既有标签和所有证据，无需重新部署合约。NDEF URL 的实物写入须通过外部工具，系统页面提供同一前端站点的 `/n/{uidHash}` 地址。
