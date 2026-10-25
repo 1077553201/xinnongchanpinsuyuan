@@ -10,6 +10,7 @@
 - IoT：网关/设备登记、近期读数与趋势、窗口摘要、告警、模拟上报和手动聚合。
 - NFC：新包装码逐件 UID 关联、停用留档及回执恢复，公众标签入口实时核验后进入二维码对应的同一产品页；普通 UID 不代表防克隆。详见 [包装 NFC 说明](docs/PACKING_NFC_STAGE.md)。
 - 证据对账：按机构集中查看已冻结的生产、流转、质检和 NFC 操作，分页筛选、只读查链并显式补记已有链记录；未知结果不自动重发，原交易回执独立处理。详见 [集中对账说明](docs/EVIDENCE_RECONCILIATION_STAGE.md)。
+- 原始回执：按已保存交易哈希核对实际回执、完整原调用与目标事件，显式保存核验结果并防止迟到回调覆盖；缺哈希保持未知，不自动重发。详见 [原始回执说明](docs/TRANSACTION_RECEIPT_STAGE.md)。
 
 - 生产基础：地块登记、种植周期与历史、固定设备绑定和本轮监测；外观可切换晨光绿 / 柔光玻璃。
 - 账号权限：真实会话登录，管理员 / 生产人员 / 只读人员，所属机构范围及新生产操作审计。
@@ -74,7 +75,7 @@ mvn test
 
 ## 尚需独立完成
 
-当前剩余任务与下一轮推进顺序见 [下一阶段优化计划](docs/NEXT_OPTIMIZATION_PLAN.md)：逐项对应原阶段 0–5，区分核心未完成、按试点确定与后续扩展，并列出依赖及验收条件。来源赋码、生产/流转证据、逐码质检版本存证、新来源 NFC 入口及四类证据集中对账已具备软件与 QA 验证基础；下一轮完善原始交易收据核对，真实标签及实地试点仍待验收。报告替代保留原件及历史版本，详见 [质检存证与替代说明](docs/QUALITY_EVIDENCE_STAGE.md)。
+当前剩余任务与下一轮推进顺序见 [下一阶段优化计划](docs/NEXT_OPTIMIZATION_PLAN.md)：逐项对应原阶段 0–5，区分核心未完成、按试点确定与后续扩展，并列出依赖及验收条件。来源赋码、生产/流转证据、逐码质检版本存证、新来源 NFC 入口、集中对账及原回执核查已具备软件与 QA 验证基础；下一轮推进业务更正与拒收/召回异常留档，真实标签及实地试点仍待验收。报告替代保留原件及历史版本，详见 [质检存证与替代说明](docs/QUALITY_EVIDENCE_STAGE.md)。
 
 业务方向与分期见 [生产到销售及 Agent 规划](docs/PRODUCTION_TO_SALES_AGENT_PLAN.md)。本轮新增地块登记、种植周期开启/结束和历史档案，管理台顶部可切换“晨光绿 / 柔光玻璃”，外观选择保存在本机浏览器。
 
@@ -116,3 +117,5 @@ mvn test
 第十五批迁移 `database/migrations/015_quality_evidence.sql` 新增报告替代关系与逐码质检版本表，可运行 `scripts/ApplyQualityEvidenceSchema.java`。应先完成第十四批；保留已有报告、原件和生产/流转快照，无需重新部署合约。
 
 第十六批迁移 `database/migrations/016_packing_nfc.sql` 新增包装 NFC 操作历史表，可运行 `scripts/ApplyPackingNfcSchema.java`。先完成此前来源与生产证据迁移；保留既有标签和所有证据，无需重新部署合约。NDEF URL 的实物写入须通过外部工具，系统页面提供同一前端站点的 `/n/{uidHash}` 地址。
+
+第十七批迁移 `database/migrations/017_receipt_verification.sql` 为原交易增加回执核验时间及摘要，可运行 `scripts/ApplyReceiptVerificationSchema.java`，保留原哈希、提交信息和业务事实。核验标记保护已确认留档不被迟到回调覆盖；部署本版前升级，无需重新部署合约。

@@ -17,6 +17,7 @@ import org.nongchanpin.model.vo.ChainTraceEventView;
 import org.nongchanpin.model.vo.ChainTxResult;
 
 public interface ChainService {
+    org.nongchanpin.model.vo.ChainReceiptView inspectReceipt(org.nongchanpin.model.command.ReceiptCall call);
     ChainHealthResult health();
 
     ChainTxResult setWriter(String writerAddress, boolean allowed);

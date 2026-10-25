@@ -5,6 +5,7 @@ import GlassPanel from '@/components/GlassPanel.vue'
 import ResourceState from '@/components/ResourceState.vue'
 import AppDialog from '@/components/AppDialog.vue'
 import StatusChip from '@/components/StatusChip.vue'
+import TransactionReceiptPanel from '@/components/TransactionReceiptPanel.vue'
 import { useAuth } from '@/composables/useAuth'
 import { useAsyncResource } from '@/composables/useAsyncResource'
 import { reconciliationList, inspectEvidence, recordReconciliation, type ReconciliationRow, type ReconciliationCheck } from '@/api/evidenceReconciliation'
@@ -17,11 +18,12 @@ const draft = reactive({ kind: '', status: 'ATTENTION', packingId: '', code: '',
 const filters = shallowRef<Record<string, unknown>>({ status: 'ATTENTION' }), page = ref(1)
 const resource = useAsyncResource(() => reconciliationList({ ...filters.value, page: page.value }))
 const selected = shallowRef<ReconciliationRow | null>(null), check = shallowRef<ReconciliationCheck | null>(null)
+const receiptBusy = ref(false)
 const checking = ref(false), recording = ref(false), approved = ref(false), error = ref(''), notice = ref('')
 let revision = 0
 onScopeDispose(() => { revision += 1 })
 const result = computed(() => reconciliationOutcome(check.value?.outcome ?? ''))
-const recordable = computed(() => check.value && auth.canWrite.value && canRecordReconciliation(check.value))
+const recordable = computed(() => check.value && !checking.value && !receiptBusy.value && auth.canWrite.value && canRecordReconciliation(check.value))
 const actions: Record<string, string> = { BATCH_REGISTER: '注册包装批次', ITEM_BIND: '绑定包装码', TRACE_EVENT: '流转事件', QUALITY_TEST: '质检事件', BIND: '绑定标签', DISABLE: '停用标签' }
 onMounted(resource.load)
 async function search() {
@@ -31,7 +33,7 @@ async function search() {
 }
 async function turn(next: number) { page.value = next; await resource.load() }
 async function inspect(row: ReconciliationRow) {
-  if (recording.value) return
+  if (recording.value || receiptBusy.value) return
   const current = ++revision
   selected.value = row; check.value = null; approved.value = false; error.value = ''; notice.value = ''; checking.value = true
   try { const value = await inspectEvidence(row.kind, row.recordId); if (current === revision) check.value = value }
@@ -39,11 +41,11 @@ async function inspect(row: ReconciliationRow) {
   finally { if (current === revision) checking.value = false }
 }
 function close() {
-  if (recording.value) return
+  if (recording.value || receiptBusy.value) return
   revision += 1; selected.value = null; check.value = null; checking.value = false; approved.value = false
 }
 async function record() {
-  if (recording.value || !approved.value || !recordable.value || !check.value) return
+  if (recording.value || receiptBusy.value || !approved.value || !recordable.value || !check.value) return
   const current = check.value
   recording.value = true; approved.value = false; error.value = ''; notice.value = ''
   try {
@@ -52,6 +54,15 @@ async function record() {
     await resource.load()
   } catch (cause) { check.value = null; error.value = operationError(cause) + ' 请重新查链核对当前状态。' }
   finally { recording.value = false }
+}
+async function receiptRecorded() {
+  approved.value = false
+  if (!check.value) return
+  const row = check.value.record
+  checking.value = true
+  try { check.value = await inspectEvidence(row.kind, row.recordId); await resource.load() }
+  catch (cause) { check.value = null; error.value = operationError(cause) }
+  finally { checking.value = false }
 }
 </script>
 
@@ -76,7 +87,7 @@ async function record() {
       </ResourceState>
       <div v-if="resource.data.value" class="section-head"><p class="muted">共 {{ resource.data.value.total }} 项 · 第 {{ resource.data.value.page }} 页 · 清单时点 {{ formatDateTime(resource.data.value.checkedAt) }}</p><div class="actions"><button class="action-button" :disabled="resource.loading.value || recording || resource.data.value.page <= 1" @click="turn(resource.data.value.page - 1)">上一页</button><button class="action-button" :disabled="resource.loading.value || recording || resource.data.value.page * resource.data.value.limit >= resource.data.value.total" @click="turn(resource.data.value.page + 1)">下一页</button></div></div>
     </GlassPanel>
-    <AppDialog :open="!!selected" title="查链核对与确认补记" :busy="recording" @close="close">
+    <AppDialog :open="!!selected" title="查链核对与确认补记" :busy="recording || receiptBusy" @close="close">
       <div class="stack"><p v-if="selected">{{ EVIDENCE_KINDS[selected.kind] }} #{{ selected.recordId }} · {{ selected.traceCode || selected.packingCode }}</p><p v-if="checking" role="status">正在只读核对来源、冻结摘要与链上记录，最多读取 200 条单品事件…</p>
         <template v-if="check"><h3>{{ result.label }}</h3><p>{{ result.detail }}</p><p class="muted">核对时点 {{ formatDateTime(check.checkedAt) }}</p><p class="digest">冻结摘要 {{ check.record.frozenHash }}</p><p>原交易记录 {{ check.record.txId ? `#${check.record.txId}` : '无' }} · 原提交状态 {{ check.transactionStatus || '无' }} · 回执状态 {{ check.receiptStatus ?? '未取得' }}</p>
           <p v-if="check.processing" class="notice wait">原操作仍在处理，暂不能补记，请稍后核对。</p>
@@ -85,9 +96,10 @@ async function record() {
           <p v-if="check.disposition === 'UNKNOWN_TRANSACTION'" class="notice wait">原交易结果仍未知，保留原意图；仅可继续查链，不能因等待时间长而重发。</p>
           <p v-if="check.disposition === 'BUSINESS_REVIEW'" class="notice wait">请返回来源业务核对状态和提交范围，明确确认后再办理；此集中入口不会发送交易。</p>
           <form v-if="recordable" class="stack" @submit.prevent="record"><label class="approval"><input v-model="approved" type="checkbox" :disabled="recording">已核对具体业务、冻结摘要及本次查链结果，仅补记已存在且一致的链记录，不发送新交易。</label><button class="action-button primary" :disabled="recording || !approved">{{ recording ? '正在重新核对与补记…' : '确认补记已有链记录' }}</button></form>
-          <div class="actions"><button class="action-button" :disabled="recording || checking" @click="inspect(check.record)">重新只读核对</button><RouterLink v-if="!recording" :to="{ path: '/admin/harvest', query: { cycle: check.record.cycleId } }">查看来源采收与包装 →</RouterLink><RouterLink v-if="check.record.kind === 'CIRCULATION' && !recording" to="/admin/sales">前往销售出库与逐件流转 →</RouterLink></div>
+          <div class="actions"><button class="action-button" :disabled="recording || receiptBusy || checking" @click="inspect(check.record)">重新只读核对</button><RouterLink v-if="!recording && !receiptBusy" :to="{ path: '/admin/harvest', query: { cycle: check.record.cycleId } }">查看来源采收与包装 →</RouterLink><RouterLink v-if="check.record.kind === 'CIRCULATION' && !recording && !receiptBusy" to="/admin/sales">前往销售出库与逐件流转 →</RouterLink></div>
+          <TransactionReceiptPanel :key="`${check.record.kind}-${check.record.recordId}`" :record="check.record" :disabled="recording || checking" @busy="receiptBusy = $event" @recorded="receiptRecorded" />
         </template>
-        <p v-if="notice" role="status" class="notice">{{ notice }}</p><p v-if="error" role="alert" class="notice bad">{{ error }}</p><button v-if="error && selected" class="action-button" :disabled="recording || checking" @click="inspect(selected)">重新只读核对</button>
+        <p v-if="notice" role="status" class="notice">{{ notice }}</p><p v-if="error" role="alert" class="notice bad">{{ error }}</p><button v-if="error && selected" class="action-button" :disabled="recording || receiptBusy || checking" @click="inspect(selected)">重新只读核对</button>
       </div>
     </AppDialog>
   </div>

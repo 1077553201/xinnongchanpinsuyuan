@@ -267,6 +267,8 @@ CREATE TABLE IF NOT EXISTS chain_transaction (
   error_message VARCHAR(512),
   submitted_at DATETIME,
   confirmed_at DATETIME,
+  receipt_verified_at DATETIME(6),
+  receipt_verification_hash VARCHAR(64),
   status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
   create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

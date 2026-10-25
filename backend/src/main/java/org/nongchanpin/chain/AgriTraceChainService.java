@@ -4,6 +4,10 @@ import java.math.BigInteger;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.Collections;
+import java.util.Locale;
 import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
 import org.fisco.bcos.sdk.v3.client.Client;
@@ -33,6 +37,15 @@ import org.nongchanpin.model.vo.ChainSensorWindowView;
 import org.nongchanpin.model.vo.ChainTraceEventView;
 import org.nongchanpin.model.vo.ChainTxResult;
 import org.nongchanpin.util.Bytes32Utils;
+import org.nongchanpin.util.HashUtils;
+import org.nongchanpin.model.command.ReceiptCall;
+import org.nongchanpin.model.vo.ChainReceiptView;
+import org.fisco.bcos.sdk.v3.codec.abi.FunctionEncoder;
+import org.fisco.bcos.sdk.v3.codec.datatypes.Function;
+import org.fisco.bcos.sdk.v3.codec.datatypes.Type;
+import org.fisco.bcos.sdk.v3.codec.datatypes.generated.Bytes32;
+import org.fisco.bcos.sdk.v3.codec.datatypes.generated.Uint8;
+import org.fisco.bcos.sdk.v3.codec.datatypes.generated.Uint256;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -45,6 +58,55 @@ public class AgriTraceChainService implements ChainService {
     private final BcosConfig bcosConfig;
     private final SystemConfig systemConfig;
     private final ContractConfig contractConfig;
+
+    @Override
+    public ChainReceiptView inspectReceipt(ReceiptCall call) {
+        if(call.getTxHash()==null||!call.getTxHash().matches("0x[0-9a-fA-F]{64}"))throw new IllegalArgumentException("交易哈希格式无效。");
+        try {
+            org.fisco.bcos.sdk.v3.client.protocol.response.BcosTransactionReceipt response=client.getTransactionReceipt(call.getTxHash(),false);
+            if(response==null||response.hasError())throw new IllegalStateException("Receipt response unavailable");
+            TransactionReceipt receipt=response.getTransactionReceipt();
+            ChainReceiptView view=new ChainReceiptView();if(receipt==null)return view;
+            view.setFound(true);view.setTransactionHash(prefixed(receipt.getTransactionHash(),64));view.setContractAddress(prefixed(receipt.getTo(),40));
+            view.setOperator(prefixed(receipt.getFrom(),40));view.setBlockNumber(parseBigInteger(receipt.getBlockNumber()));view.setReceiptStatus(receipt.getStatus());
+            String actual=normalizeInput(receipt.getInput());
+            List<Type> args=new ArrayList<>();
+            for(ReceiptCall.Argument arg:call.getArguments()) {
+                switch(arg.getType()) {
+                    case "bytes32":args.add(new Bytes32(Bytes32Utils.fromHex(arg.getValue())));break;
+                    case "uint8":args.add(new Uint8(new BigInteger(arg.getValue())));break;
+                    case "uint256":args.add(new Uint256(new BigInteger(arg.getValue())));break;
+                    default:throw new IllegalArgumentException("Unsupported receipt argument");
+                }
+            }
+            String expected=hex(new FunctionEncoder(client.getCryptoSuite()).encode(new Function(call.getMethod(),args,Collections.emptyList())));
+            view.setInputMatched(!actual.isEmpty()&&actual.equals(expected));view.setInputHash(HashUtils.hashCanonicalTextPlainHex(actual));
+            if(receipt.getStatus()!=0)return view;
+            TransactionReceipt filtered=new TransactionReceipt();
+            List<TransactionReceipt.Logs> logs=new ArrayList<>();
+            if(receipt.getLogEntries()!=null)for(TransactionReceipt.Logs log:receipt.getLogEntries())
+                if(call.getContractAddress().equalsIgnoreCase(prefixed(log.getAddress(),40))) {
+                    TransactionReceipt.Logs normalized=new TransactionReceipt.Logs();normalized.setAddress(prefixed(log.getAddress(),40));
+                    List<String> topics=new ArrayList<>();if(log.getTopics()!=null)for(String topic:log.getTopics())topics.add(prefixed(topic,64));
+                    normalized.setTopics(topics);normalized.setData("0x"+normalizeInput(log.getData()));logs.add(normalized);
+                }
+            filtered.setLogEntries(logs);
+            AgriTrace decoder=AgriTrace.load(call.getContractAddress(),client,client.getCryptoSuite().getCryptoKeyPair());
+            switch(call.getEventName()) {
+                case "BatchRegistered":for(AgriTrace.BatchRegisteredEventResponse e:decoder.getBatchRegisteredEvents(filtered))view.getEvents().add(receiptEvent(e.operator,"batchIdHash",Bytes32Utils.toHex(e.batchIdHash),"productIdHash",Bytes32Utils.toHex(e.productIdHash),"payloadHash",Bytes32Utils.toHex(e.payloadHash),"startedAt",e.startedAt.toString()));break;
+                case "ItemBound":for(AgriTrace.ItemBoundEventResponse e:decoder.getItemBoundEvents(filtered))view.getEvents().add(receiptEvent(e.operator,"itemCodeHash",Bytes32Utils.toHex(e.itemCodeHash),"batchIdHash",Bytes32Utils.toHex(e.batchIdHash),"payloadHash",Bytes32Utils.toHex(e.payloadHash)));break;
+                case "TraceEventAppended":for(AgriTrace.TraceEventAppendedEventResponse e:decoder.getTraceEventAppendedEvents(filtered))view.getEvents().add(receiptEvent(e.operator,"itemCodeHash",Bytes32Utils.toHex(e.itemCodeHash),"eventIdHash",Bytes32Utils.toHex(e.eventIdHash),"eventType",e.eventType.toString(),"payloadHash",Bytes32Utils.toHex(e.payloadHash),"occurredAt",e.occurredAt.toString()));break;
+                case "NfcTagBound":for(AgriTrace.NfcTagBoundEventResponse e:decoder.getNfcTagBoundEvents(filtered))view.getEvents().add(receiptEvent(e.operator,"itemCodeHash",Bytes32Utils.toHex(e.itemCodeHash),"nfcUidHash",Bytes32Utils.toHex(e.nfcUidHash),"payloadHash",Bytes32Utils.toHex(e.payloadHash)));break;
+                case "NfcStatusUpdated":for(AgriTrace.NfcStatusUpdatedEventResponse e:decoder.getNfcStatusUpdatedEvents(filtered))view.getEvents().add(receiptEvent(e.operator,"nfcUidHash",Bytes32Utils.toHex(e.nfcUidHash),"status",e.status.toString(),"reasonHash",Bytes32Utils.toHex(e.reasonHash)));break;
+                default:throw new IllegalArgumentException("Unsupported receipt event");
+            }
+            return view;
+        } catch(Exception error){throw chainException(error);}
+    }
+    private String normalizeInput(String value){return value==null?"":value.toLowerCase(Locale.ROOT).replaceFirst("^0x","");}
+    private String prefixed(String value,int length){String normalized=normalizeInput(value);return normalized.matches("[0-9a-f]{"+length+"}")?"0x"+normalized:value;}
+    private String hex(byte[] value){StringBuilder result=new StringBuilder();for(byte b:value)result.append(String.format("%02x",b&255));return result.toString();}
+    private Map<String,String> receiptEvent(String operator,String... pairs){Map<String,String> result=new LinkedHashMap<>();result.put("operator",operator);for(int i=0;i<pairs.length;i+=2)result.put(pairs[i],pairs[i+1]);return result;}
 
     @Override
     public ChainHealthResult health() {

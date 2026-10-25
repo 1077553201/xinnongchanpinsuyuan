@@ -97,8 +97,7 @@ public class ChainTransactionService {
         tx.setChainOperator(result.getChainOperator());
         tx.setConfirmedAt(toLocalDateTime(result.getConfirmedAt()));
         tx.setErrorMessage(error);
-        chainTransactionMapper.updateResult(tx);
-        return tx;
+        return chainTransactionMapper.updateResult(tx)==1?tx:get(id);
     }
 
     private Long toLong(BigInteger value) {

@@ -22,6 +22,8 @@ public class ChainTransactionEntity {
     private String errorMessage;
     private LocalDateTime submittedAt;
     private LocalDateTime confirmedAt;
+    private LocalDateTime receiptVerifiedAt;
+    private String receiptVerificationHash;
     private String status;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;

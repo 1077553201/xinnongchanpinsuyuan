@@ -90,14 +90,14 @@ public class EvidenceReconciliationService {
         return inspect(kind,id);
     }
 
-    private EvidenceReconciliationRow required(String kind,Long id) {
+    EvidenceReconciliationRow required(String kind,Long id) {
         if(!KINDS.contains(kind)||id==null||id<1)throw new IllegalArgumentException("对账记录无效。");
         EvidenceReconciliationRow row=records.find(kind,id,AccessContext.organization());
         if(row==null)throw new AccessException(404,"对账记录不存在或无权查看。");
         AccessContext.checkOrganization(row.getOrganizationId());return row;
     }
 
-    private void validate(EvidenceReconciliationRow row) {
+    void validate(EvidenceReconciliationRow row) {
         PackingEvidenceService.validate(production.snapshot(row.getPackingId()),packing.bridge(row.getPackingId()));
         switch(row.getKind()) {
             case "PRODUCTION": {

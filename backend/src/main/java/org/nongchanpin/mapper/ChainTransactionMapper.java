@@ -22,13 +22,19 @@ public interface ChainTransactionMapper {
     @Select("SELECT * FROM chain_transaction WHERE id = #{id} AND status = 'ACTIVE'")
     ChainTransactionEntity findById(Long id);
 
+    @Select("SELECT * FROM chain_transaction WHERE id=#{id} AND status='ACTIVE' FOR UPDATE")
+    ChainTransactionEntity lockReceipt(Long id);
+
+    @Update("UPDATE chain_transaction SET chain_status=#{chainStatus},block_number=#{blockNumber},receipt_status=#{receiptStatus},chain_operator=#{chainOperator},confirmed_at=#{confirmedAt},error_message=#{errorMessage},receipt_verified_at=#{receiptVerifiedAt},receipt_verification_hash=#{receiptVerificationHash},update_time=NOW() WHERE id=#{id} AND tx_hash=#{txHash} AND status='ACTIVE'")
+    int recordReceipt(ChainTransactionEntity tx);
+
     @Insert("INSERT INTO chain_transaction (business_type, business_id, business_id_hash, chain_status, contract_address, event_name, event_indexed_keys, payload_hash, request_hash, submitted_at, status) "
             + "VALUES (#{businessType}, #{businessId}, #{businessIdHash}, #{chainStatus}, #{contractAddress}, #{eventName}, #{eventIndexedKeys}, #{payloadHash}, #{requestHash}, #{submittedAt}, 'ACTIVE')")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(ChainTransactionEntity tx);
 
     @Update("UPDATE chain_transaction SET chain_status = #{chainStatus}, tx_hash = #{txHash}, block_number = #{blockNumber}, receipt_status = #{receiptStatus}, "
-            + "contract_address = #{contractAddress}, event_name = #{eventName}, payload_hash = #{payloadHash}, chain_operator = #{chainOperator}, confirmed_at = #{confirmedAt}, error_message = #{errorMessage}, update_time = NOW() WHERE id = #{id}")
+            + "contract_address = #{contractAddress}, event_name = #{eventName}, payload_hash = #{payloadHash}, chain_operator = #{chainOperator}, confirmed_at = #{confirmedAt}, error_message = #{errorMessage}, update_time = NOW() WHERE id = #{id} AND receipt_verified_at IS NULL")
     int updateResult(ChainTransactionEntity tx);
 
     @Select("SELECT * FROM chain_transaction WHERE business_type = #{businessType} AND business_id = #{businessId} AND status = 'ACTIVE' ORDER BY id DESC LIMIT 1")
