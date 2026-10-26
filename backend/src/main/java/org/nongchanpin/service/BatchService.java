@@ -43,6 +43,9 @@ public class BatchService {
         if (!Objects.equals(product.getOrganizationId(), request.getOrganizationId())) {
             throw new IllegalArgumentException("batch organization must match product organization");
         }
+        if (!Objects.equals(request.getOrganizationId(), productMapper.lockActiveOrganization(request.getOrganizationId()))) {
+            throw new IllegalArgumentException("所属机构不存在或已停用，不能新建批次。");
+        }
         if (request.getPlantDate() != null && request.getHarvestDate() != null
                 && request.getHarvestDate().isBefore(request.getPlantDate())) {
             throw new IllegalArgumentException("harvest date must not precede plant date");

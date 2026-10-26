@@ -9,6 +9,7 @@ import org.nongchanpin.model.entity.*;
 @Mapper
 public interface GrowingMapper {
     @Select("SELECT id, organization_id, username, display_name FROM sys_user u WHERE u.status = 'ACTIVE' "
+            + "AND EXISTS (SELECT 1 FROM sys_organization o WHERE o.id=u.organization_id AND o.status='ACTIVE') "
             + "AND (#{org} IS NULL OR u.organization_id = #{org}) AND EXISTS (SELECT 1 FROM sys_user_role ur "
             + "JOIN sys_role r ON r.id = ur.role_id WHERE ur.user_id = u.id AND r.status = 'ACTIVE' AND r.role_code IN ('ADMIN','MANAGER')) ORDER BY u.id")
     List<ProductionPerson> people(@Param("org") Long org);

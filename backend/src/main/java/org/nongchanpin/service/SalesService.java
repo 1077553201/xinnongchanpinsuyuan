@@ -51,6 +51,8 @@ public class SalesService {
             inventory.lockPacking(packingId);
         }
         List<SalesLineEntity> lines=new ArrayList<>(); Set<String> pairs=new HashSet<>(); Map<Long,Long> quantities=new HashMap<>();
+        production.lockOrganization(request.getOrganizationId());
+        if (production.activeOrganization(request.getOrganizationId()) != 1) throw new IllegalArgumentException("所属机构已停用，请刷新机构选项后重试。");
         BigDecimal total=new BigDecimal("0.00");
         for (SalesRequests.Line input:request.getLines()) {
             InventorySource source=inventory.source(input.getPackingId()); WarehouseEntity warehouse=inventory.warehouse(input.getWarehouseId());

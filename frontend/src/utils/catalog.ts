@@ -14,7 +14,7 @@ const positiveId = (value: string) => Number.isSafeInteger(Number(value)) && Num
 
 export function validateProduct(draft: ProductDraft, existingCodes: string[] = []): FieldErrors {
   const errors: FieldErrors = {}
-  if (!positiveId(draft.organizationId)) errors.organizationId = '请填写有效的正整数机构编号。'
+  if (!positiveId(draft.organizationId)) errors.organizationId = '请选择有效的所属机构。'
   for (const [key, label, max] of [
     ['productCode', '产品编码', 64], ['productName', '产品名称', 128], ['category', '品类', 64],
   ] as const) {
@@ -36,7 +36,7 @@ export function validateBatch(draft: BatchDraft, products: ProductEntity[], exis
   const errors: FieldErrors = {}
   const product = products.find((product) => product.id === Number(draft.productId))
   if (!positiveId(draft.productId) || !product) errors.productId = '请选择已存在的产品。'
-  if (!positiveId(draft.organizationId)) errors.organizationId = '请填写有效的正整数机构编号。'
+  if (!positiveId(draft.organizationId)) errors.organizationId = '请选择有效的所属机构。'
   else if (product && Number(draft.organizationId) !== product.organizationId) errors.organizationId = '批次机构必须与所属产品一致。'
   if (!draft.batchCode.trim()) errors.batchCode = '请填写批次编码。'
   else if (draft.batchCode.trim().length > 64) errors.batchCode = '批次编码最多 64 个字符。'

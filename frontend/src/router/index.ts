@@ -98,6 +98,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '账号与权限', eyebrow: 'People & access' },
       },
       {
+        path: 'organizations',
+        name: 'admin-organizations',
+        component: () => import('@/views/admin/OrganizationsView.vue'),
+        meta: { title: '机构管理', eyebrow: 'Organizations' },
+      },
+      {
         path: 'products',
         name: 'admin-products',
         component: () => import('@/views/admin/CatalogView.vue'),

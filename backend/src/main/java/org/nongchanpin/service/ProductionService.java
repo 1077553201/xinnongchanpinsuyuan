@@ -26,6 +26,7 @@ public class ProductionService {
     private final org.nongchanpin.mapper.HarvestMapper harvests;
 
     public List<Map<String, Object>> organizations() { return production.organizations(AccessContext.organization()); }
+    public List<Map<String, Object>> organizationNames() { return production.organizationNames(AccessContext.organization()); }
     public List<FarmPlotEntity> plots() { return production.plots(AccessContext.organization()); }
     public List<PlantingCycleEntity> cycles() { return production.cycles(AccessContext.organization()); }
 
@@ -33,6 +34,7 @@ public class ProductionService {
     public FarmPlotEntity createPlot(CreatePlotRequest request) {
         AccessContext.write();
         AccessContext.checkOrganization(request.getOrganizationId());
+        production.lockOrganization(request.getOrganizationId());
         if (production.activeOrganization(request.getOrganizationId()) != 1) {
             throw new IllegalArgumentException("所属机构不存在或已停用。");
         }
@@ -55,6 +57,7 @@ public class ProductionService {
         FarmPlotEntity plot = production.lockPlot(plotId);
         if (plot == null) throw new IllegalArgumentException("地块不存在。");
         AccessContext.checkOrganization(plot.getOrganizationId());
+        production.lockOrganization(plot.getOrganizationId());
         if (production.activeOrganization(plot.getOrganizationId()) != 1) {
             throw new IllegalArgumentException("所属机构已停用，不能开启种植。");
         }

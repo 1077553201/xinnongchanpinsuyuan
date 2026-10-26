@@ -37,6 +37,7 @@ public class MonitoringService {
 
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED) public void assign(Long id, Assign request) {
         AccessContext.admin();
+        production.lockOrganization(request.getOrganizationId());
         IotDeviceEntity device = monitoring.lockDevice(id);
         if (device == null || "DELETED".equals(device.getStatus())) throw new IllegalArgumentException("设备不存在。");
         if (device.getOrganizationId() != null) throw new IllegalArgumentException("设备已有所属机构，本阶段不支持跨机构转移。");
@@ -51,6 +52,8 @@ public class MonitoringService {
         if (cycle == null) throw new IllegalArgumentException("种植周期不存在。");
         FarmPlotEntity plot = production.lockPlot(cycle.getPlotId());
         AccessContext.checkOrganization(plot.getOrganizationId());
+        production.lockOrganization(plot.getOrganizationId());
+        if (production.activeOrganization(plot.getOrganizationId()) != 1) throw new IllegalArgumentException("所属机构已停用，不能新增设备绑定。");
         cycle = production.lockCycle(cycle.getId());
         if (!"ACTIVE".equals(cycle.getStatus())) throw new IllegalArgumentException("只能绑定正在种植的周期。");
         IotDeviceEntity device = monitoring.lockDevice(request.getDeviceId());

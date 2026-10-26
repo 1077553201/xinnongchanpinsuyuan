@@ -14,9 +14,13 @@ import java.util.stream.Collectors;
 public class ProductService {
     private final ProductMapper productMapper;
 
+    @org.springframework.transaction.annotation.Transactional
     public ProductEntity create(CreateProductRequest request) {
         AccessContext.write();
         AccessContext.checkOrganization(request.getOrganizationId());
+        if (!java.util.Objects.equals(request.getOrganizationId(), productMapper.lockActiveOrganization(request.getOrganizationId()))) {
+            throw new IllegalArgumentException("所属机构不存在或已停用，请刷新机构选项后重试。");
+        }
         ProductEntity product = new ProductEntity();
         product.setOrganizationId(request.getOrganizationId());
         product.setProductCode(request.getProductCode());

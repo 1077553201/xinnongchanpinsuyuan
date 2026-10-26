@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 import GlassPanel from '@/components/GlassPanel.vue'
 import ResourceState from '@/components/ResourceState.vue'
 import StatusChip from '@/components/StatusChip.vue'
@@ -25,7 +26,7 @@ const columns: Record<Tab, { key: string; label: string }[]> = {
   windows: [{ key: 'deviceCode', label: '设备' }, { key: 'metric', label: '指标' }, { key: 'avgValue', label: '均值' }, { key: 'sampleCount', label: '样本数' }, { key: 'windowStart', label: '窗口开始' }, { key: 'chainStatus', label: '上链状态' }, { key: 'dataHash', label: '数据摘要' }],
   alerts: [{ key: 'deviceCode', label: '设备' }, { key: 'metric', label: '指标' }, { key: 'value', label: '读数' }, { key: 'message', label: '告警内容' }, { key: 'occurredAt', label: '发生时间' }, { key: 'status', label: '处理状态' }],
   devices: [{ key: 'deviceCode', label: '设备编码' }, { key: 'deviceName', label: '名称' }, { key: 'gatewayCode', label: '网关' }, { key: 'deviceType', label: '类型' }, { key: 'lastSeenAt', label: '最近上报' }],
-  gateways: [{ key: 'gatewayCode', label: '网关编码' }, { key: 'gatewayName', label: '名称' }, { key: 'farmId', label: '农场 ID' }, { key: 'status', label: '状态' }],
+  gateways: [{ key: 'gatewayCode', label: '网关编码' }, { key: 'gatewayName', label: '名称' }, { key: 'farmId', label: '接入农场编号' }, { key: 'status', label: '状态' }],
 }
 const rows = computed(() => ((current.value.data.value ?? []) as unknown as Record<string, unknown>[]).filter(row => (!gatewayFilter.value || row.gatewayCode === gatewayFilter.value)
   && (!deviceFilter.value || !row.deviceCode || row.deviceCode === deviceFilter.value)
@@ -42,9 +43,9 @@ const trendPoints = computed(() => {
 const mode = ref<'gateway' | 'device' | 'telemetry' | 'aggregate' | null>(null)
 const busy = ref(false), uncertain = ref(false), error = ref(''), notice = ref('')
 const draft = reactive<Record<string, string>>({})
-const formFields = computed(() => mode.value === 'gateway' ? [['farmId','农场 ID','number'],['gatewayCode','网关编码','text'],['gatewayName','网关名称','text']]
-  : mode.value === 'device' ? [['farmId','农场 ID','number'],['gatewayCode','网关编码','text'],['deviceCode','设备编码','text'],['deviceName','设备名称','text']]
-  : mode.value === 'telemetry' ? [['farmId','农场 ID','number'],['gatewayCode','网关编码','text'],['deviceCode','设备编码','text'],['value','采样值','number'],['batchCode','关联批次编码（选填）','text']]
+const formFields = computed(() => mode.value === 'gateway' ? [['farmId','接入农场编号（报文）','number'],['gatewayCode','网关编码','text'],['gatewayName','网关名称','text']]
+  : mode.value === 'device' ? [['farmId','接入农场编号（报文）','number'],['gatewayCode','网关编码','text'],['deviceCode','设备编码','text'],['deviceName','设备名称','text']]
+  : mode.value === 'telemetry' ? [['farmId','接入农场编号（报文）','number'],['gatewayCode','网关编码','text'],['deviceCode','设备编码','text'],['value','采样值','number'],['batchCode','关联批次编码（选填）','text']]
   : [['deviceCode','设备编码','text'],['windowStart','窗口开始（北京时间）','datetime-local'],['windowEnd','窗口结束（北京时间）','datetime-local']])
 async function refresh() { await Promise.all([gateways.load(), devices.load(), readings.load(), windows.load(), alerts.load(), status.load()]) }
 onMounted(refresh)
@@ -67,7 +68,7 @@ async function save() {
   error.value = ''
   const kind = mode.value
   const farmId = Number(draft.farmId)
-  if (kind !== 'aggregate' && (!Number.isSafeInteger(farmId) || farmId < 1)) { error.value = '农场 ID 须为正整数。'; return }
+  if (kind !== 'aggregate' && (!Number.isSafeInteger(farmId) || farmId < 1)) { error.value = '接入农场编号须与网关报文一致，且为正整数。'; return }
   busy.value = true
   try {
     if (kind === 'gateway') await registerGateway({ farmId, gatewayCode: draft.gatewayCode.trim(), gatewayName: draft.gatewayName?.trim() })
@@ -96,6 +97,7 @@ async function save() {
     <p v-if="notice" class="notice" role="status">{{ notice }}</p>
     <GlassPanel class="stack"><div class="toolbar"><div><p class="eyebrow">生产环境</p><h2 class="display">设备、采样与异常</h2></div><button class="action-button" type="button" :disabled="current.loading.value" @click="refresh">刷新监控</button></div>
       <ResourceState :loading="status.loading.value" :error="status.error.value" @retry="status.load"><StatusChip :tone="status.data.value?.mqttConnected ? 'ok' : 'off'" :label="status.data.value?.mqttConnected ? 'MQTT 已连接' : status.data.value?.mqttEnabled ? 'MQTT 未连接' : 'MQTT 订阅未启用'" /></ResourceState>
+      <p class="notice">接入农场编号用于匹配网关报文，不等于系统机构 ID。设备登记后请确认经营归属。<RouterLink to="/admin/monitoring" class="text-button">设备归属与绑定 →</RouterLink> <RouterLink to="/admin/organizations" class="text-button">机构管理 →</RouterLink></p>
       <p class="muted tiny">下方显示最近最多 100 条记录，筛选作用于当前结果。设备报文仍需身份验签；模拟采样单独标记，不计入正式告警、环境摘要或上链。生产监测请先在“监测与设备绑定”确认归属，小车跨地巡检尚未接入任务。</p>
       <div class="actions"><button class="action-button" type="button" @click="open('gateway')">登记网关</button><button class="action-button" type="button" @click="open('device')">登记设备</button><button class="action-button" type="button" @click="open('telemetry')">模拟采样</button><button class="action-button" type="button" @click="open('aggregate')">手动聚合窗口</button></div>
       <div class="actions" role="group" aria-label="监控记录类型"><button v-for="entry in tabs" :key="entry.key" class="action-button" :class="{ primary: tab === entry.key }" type="button" :aria-pressed="tab === entry.key" @click="tab = entry.key">{{ entry.label }}</button></div>

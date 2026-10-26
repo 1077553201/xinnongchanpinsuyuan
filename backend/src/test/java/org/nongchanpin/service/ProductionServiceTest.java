@@ -166,4 +166,11 @@ class ProductionServiceTest {
         EndPlantingRequest request = new EndPlantingRequest(); request.setEndedOn(LocalDate.now().minusDays(1)); request.setReason("结束");
         assertThrows(IllegalArgumentException.class, () -> service.end(7L, request)); verify(mapper, never()).endCycle(any());
     }
+    @Test void historicalOrganizationNamesRemainScopedToCurrentInstitution() {
+        AccessContext.require().setRole("MANAGER");
+        service.organizationNames(); verify(mapper).organizationNames(3L);
+    }
+    @Test void administratorCanResolveHistoricalNamesAcrossOrganizations() {
+        AccessContext.require().setRole("ADMIN"); service.organizationNames(); verify(mapper).organizationNames(null);
+    }
 }

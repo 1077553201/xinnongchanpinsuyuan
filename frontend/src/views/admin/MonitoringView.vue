@@ -6,8 +6,10 @@ import ResourceState from '@/components/ResourceState.vue'
 import AppDialog from '@/components/AppDialog.vue'
 import { useAuth } from '@/composables/useAuth'
 import { useAsyncResource } from '@/composables/useAsyncResource'
+import { useOrganizationDirectory } from '@/composables/useOrganizationDirectory'
+import OrganizationHelp from '@/components/OrganizationHelp.vue'
 import { ApiError, get, post } from '@/api/http'
-import { listCycles, listOrganizations, listPlots } from '@/api/production'
+import { listCycles, listPlots } from '@/api/production'
 import type { IotDeviceEntity, IotSensorReadingEntity, IotDataWindowEntity } from '@/types/iot'
 import { formatDateTime, metricMeta, shortHash } from '@/types/api'
 
@@ -19,7 +21,7 @@ const cycles = useAsyncResource(listCycles)
 const plots = useAsyncResource(listPlots)
 const devices = useAsyncResource(() => get<Device[]>('/production/devices'))
 const bindings = useAsyncResource(() => get<Binding[]>('/production/bindings'))
-const organizations = useAsyncResource(listOrganizations)
+const organizations = useOrganizationDirectory()
 const cycleId = ref(typeof route.query.cycle === 'string' ? route.query.cycle : '')
 const selectedCycle = computed(() => cycles.data.value?.find(cycle => cycle.id === Number(cycleId.value)))
 const selectedPlot = computed(() => plots.data.value?.find(plot => plot.id === selectedCycle.value?.plotId))
@@ -61,6 +63,7 @@ async function save() {
 
 <template>
   <div class="management stack">
+    <OrganizationHelp :loading="organizations.loading.value" @refresh="organizations.load" />
     <GlassPanel padded="large" class="stack">
       <div class="section-head"><div><p class="eyebrow">让每次采集有明确来源</p><h2 class="display">监测跟随本轮种植，历史留在原处。</h2></div><button class="action-button" :disabled="loading" @click="refresh">刷新记录</button></div>
       <p class="muted">固定设备按绑定生效时间确定地块与种植周期。小车跨地巡检将通过独立任务关联，本阶段不按固定设备方式处理。</p>
@@ -73,7 +76,7 @@ async function save() {
     <GlassPanel v-if="auth.isAdmin.value" padded="large" class="stack">
       <div class="section-head"><h2 class="display">设备所属机构</h2><button class="action-button" :disabled="loading || !!devices.error.value || !!organizations.error.value || !unassigned.length" @click="open('assign')">分配未归属设备</button></div>
       <p class="muted">{{ devices.data.value ? `${unassigned.length} 台设备尚未确认所属机构。` : '' }}旧设备与自动发现设备不推测机构，确认后才能绑定。设备注册仍在管理员的“传感器监控”中办理。</p>
-      <ResourceState :loading="devices.loading.value" :error="devices.error.value || organizations.error.value" @retry="refresh"><p class="muted">所属机构确认后暂不支持跨机构转移，避免改变历史来源。</p></ResourceState>
+      <ResourceState :loading="devices.loading.value" :error="devices.error.value || organizations.error.value" @retry="refresh"><p class="muted">所属机构确认后暂不支持跨机构转移，避免改变历史来源。</p><OrganizationHelp :loading="organizations.loading.value" @refresh="organizations.load" /><details v-if="devices.data.value?.length"><summary>查看设备机构归属</summary><div class="table-scroll"><table class="data-table"><thead><tr><th>设备</th><th>所属机构</th></tr></thead><tbody><tr v-for="device in devices.data.value" :key="device.id"><td>{{ device.deviceName || device.deviceCode }}<p>{{ device.deviceCode }}</p></td><td>{{ device.organizationId ? organizations.names.value.get(device.organizationId) ?? `机构 #${device.organizationId}` : '未分配' }}</td></tr></tbody></table></div></details></ResourceState>
     </GlassPanel>
     <GlassPanel padded="large">
       <h2 class="display">{{ selectedCycle ? '本轮绑定历史' : '全部绑定历史' }}</h2>
@@ -87,7 +90,7 @@ async function save() {
     </template>
     <RouterLink to="/admin/production" class="text-button">返回地块与种植 →</RouterLink>
     <AppDialog :open="mode !== null" :title="title" :busy="busy" @close="close"><form class="management" @submit.prevent="save"><fieldset :disabled="busy || uncertain">
-      <template v-if="mode === 'assign'"><p class="notice">请核对设备实际所属经营主体。确认后暂不支持跨机构转移。</p><label class="form-field">未归属设备<select v-model="draft.deviceId" class="field-input" required><option value="" disabled>请选择</option><option v-for="device in unassigned" :key="device.id" :value="String(device.id)">{{ device.deviceName || device.deviceCode }} · {{ device.deviceCode }}</option></select></label><label class="form-field">所属机构<select v-model="draft.organizationId" class="field-input" required><option value="" disabled>请选择</option><option v-for="org in organizations.data.value" :key="org.id" :value="String(org.id)">{{ org.name }}</option></select></label></template>
+      <template v-if="mode === 'assign'"><p class="notice">请核对设备实际所属经营主体。确认后暂不支持跨机构转移。</p><label class="form-field">未归属设备<select v-model="draft.deviceId" class="field-input" required><option value="" disabled>请选择</option><option v-for="device in unassigned" :key="device.id" :value="String(device.id)">{{ device.deviceName || device.deviceCode }} · {{ device.deviceCode }}</option></select></label><OrganizationHelp :loading="organizations.loading.value" @refresh="organizations.load" /><label class="form-field">所属机构<select v-model="draft.organizationId" class="field-input" required><option value="" disabled>请选择</option><option v-for="org in organizations.data.value" :key="org.id" :value="String(org.id)">{{ org.name }} · {{ org.code || `#${org.id}` }}</option></select></label></template>
       <template v-else-if="mode === 'bind'"><p class="notice">{{ selectedPlot?.plotName }} · {{ selectedCycle?.cycleCode }}。确认后立即生效，不回填过去的采集来源。</p><label class="form-field">同机构可用设备<select v-model="draft.deviceId" class="field-input" required><option value="" disabled>请选择固定传感器</option><option v-for="device in eligible" :key="device.id" :value="String(device.id)">{{ device.deviceName || device.deviceCode }} · {{ device.deviceCode }}</option></select></label><p v-if="!eligible.length" class="notice wait">暂无可用设备，请先确认所属机构，或解除设备的旧绑定。</p></template>
       <template v-else><p class="notice wait">确认结束 {{ selectedBinding?.deviceCode }} 对本轮的监测？历史绑定保留，解除后新采集不再归到本轮。</p><label class="form-field">解除说明<textarea v-model.trim="draft.reason" class="field-input" rows="3" required maxlength="1000" placeholder="例如 转移到另一块地，或本轮结束"></textarea></label></template>
     </fieldset><p v-if="error" class="notice bad" role="alert">{{ error }}</p><div class="actions form-actions"><button class="action-button primary" type="submit" :disabled="busy || uncertain || (mode === 'bind' && !eligible.length)">{{ busy ? '正在保存…' : '确认执行' }}</button><button class="action-button" type="button" :disabled="busy" @click="close">关闭</button></div></form></AppDialog>

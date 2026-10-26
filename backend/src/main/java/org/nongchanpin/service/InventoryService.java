@@ -52,6 +52,7 @@ public class InventoryService {
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public WarehouseEntity createWarehouse(@Valid InventoryRequests.Warehouse request) {
         AccessContext.write(); AccessContext.checkOrganization(request.getOrganizationId());
+        production.lockOrganization(request.getOrganizationId());
         if (production.activeOrganization(request.getOrganizationId()) != 1) throw new IllegalArgumentException("所属机构不存在或已停用。");
         WarehouseEntity record = new WarehouseEntity(); record.setOrganizationId(request.getOrganizationId()); record.setWarehouseCode(request.getWarehouseCode());
         record.setWarehouseName(request.getWarehouseName().trim()); record.setLocation(request.getLocation().trim()); record.setNotes(text(request.getNotes())); record.setCreatedBy(AccessContext.require().getId());

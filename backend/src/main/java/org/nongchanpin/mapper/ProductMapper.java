@@ -9,6 +9,9 @@ import org.nongchanpin.model.entity.ProductEntity;
 
 @Mapper
 public interface ProductMapper {
+    @Options(flushCache = Options.FlushCachePolicy.TRUE)
+    @Select("SELECT id FROM sys_organization WHERE id=#{id} AND status='ACTIVE' FOR UPDATE")
+    Long lockActiveOrganization(Long id);
     @Insert("INSERT INTO product (organization_id, product_code, product_name, category, variety, origin_place, description, status) "
             + "VALUES (#{organizationId}, #{productCode}, #{productName}, #{category}, #{variety}, #{originPlace}, #{description}, #{status})")
     @Options(useGeneratedKeys = true, keyProperty = "id")

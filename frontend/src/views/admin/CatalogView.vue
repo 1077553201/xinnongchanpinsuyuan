@@ -6,6 +6,8 @@ import StatusChip from '@/components/StatusChip.vue'
 import ResourceState from '@/components/ResourceState.vue'
 import AppDialog from '@/components/AppDialog.vue'
 import { useAsyncResource } from '@/composables/useAsyncResource'
+import { useOrganizationDirectory } from '@/composables/useOrganizationDirectory'
+import OrganizationHelp from '@/components/OrganizationHelp.vue'
 import { ApiError } from '@/api/http'
 import { closeBatch, createBatch, createProduct, getBatch, getProduct, listBatches, listProducts } from '@/api/catalog'
 import { batchPayload, batchSaveFeedback, batchStatusLabel, productPayload, validateBatch, validateProduct } from '@/utils/catalog'
@@ -13,6 +15,8 @@ import type { BatchDraft, FieldErrors, ProductDraft } from '@/utils/catalog'
 import type { ProductBatchEntity, ProductEntity } from '@/types/catalog'
 import { formatDate, formatDateTime, type Tone } from '@/types/api'
 
+const organizations = useOrganizationDirectory()
+const selectableProducts = computed(() => products.value.filter(product => organizations.data.value?.some(org => org.id === product.organizationId)))
 const productResource = useAsyncResource(listProducts)
 const batchResource = useAsyncResource(listBatches)
 const products = computed(() => productResource.data.value ?? [])
@@ -25,7 +29,7 @@ const chainFilter = ref('')
 const page = ref(1)
 const pageSize = 10
 const activeResource = computed(() => tab.value === 'products' ? productResource : batchResource)
-const refreshing = computed(() => productResource.loading.value || batchResource.loading.value)
+const refreshing = computed(() => productResource.loading.value || batchResource.loading.value || organizations.loading.value)
 const productMap = computed(() => new Map(products.value.map((product) => [product.id, product])))
 const filteredProducts = computed(() => {
   const query = search.value.trim().toLocaleLowerCase()
@@ -67,7 +71,6 @@ const emptyBatch = (): BatchDraft => ({ productId: '', organizationId: '', batch
 const productDraft = reactive(emptyProduct())
 const batchDraft = reactive(emptyBatch())
 const productFields = [
-  { key: 'organizationId', label: '机构编号', type: 'number', required: true, max: undefined },
   { key: 'productCode', label: '产品编码', type: 'text', required: true, max: 64 },
   { key: 'productName', label: '产品名称', type: 'text', required: true, max: 128 },
   { key: 'category', label: '品类', type: 'text', required: true, max: 64 },
@@ -88,7 +91,7 @@ watch(() => batchDraft.productId, (id) => {
   const product = productMap.value.get(Number(id))
   batchDraft.organizationId = product ? String(product.organizationId) : ''
 })
-async function refresh() { await Promise.all([productResource.load(), batchResource.load()]) }
+async function refresh() { await Promise.all([productResource.load(), batchResource.load(), organizations.load()]) }
 onMounted(refresh)
 function resetDialog() {
   errors.value = {}
@@ -131,7 +134,7 @@ async function mutate(task: () => Promise<ProductEntity | ProductBatchEntity>) {
   try { success(await task()) } catch (error) {
     if (error instanceof ApiError && ['400', '409', '401', '403'].includes(error.code)) {
       saveError.value = error.code === '409' ? '编号已存在，请更换编码或查看已有记录。'
-        : error.code === '400' ? '提交内容不符合要求，请检查字段；批次状态也可能已变化，请刷新核对。'
+        : error.code === '400' ? error.message
         : '当前无权保存，请联系管理员。'
     } else {
       uncertain.value = true
@@ -141,6 +144,7 @@ async function mutate(task: () => Promise<ProductEntity | ProductBatchEntity>) {
 }
 async function submitProduct() {
   errors.value = validateProduct(productDraft, products.value.map((product) => product.productCode))
+  if (!organizations.data.value?.some(org => org.id === Number(productDraft.organizationId))) errors.value.organizationId = '请选择启用机构；选项不可用时请刷新或先管理机构。'
   if (Object.keys(errors.value).length) return focusError()
   const payload = productPayload(productDraft)
   checkPending = async () => (await listProducts()).find((product) => product.productCode === payload.productCode)
@@ -148,6 +152,7 @@ async function submitProduct() {
 }
 async function submitBatch() {
   errors.value = validateBatch(batchDraft, products.value, batches.value.map((batch) => batch.batchCode))
+  if (!organizations.data.value?.some(org => org.id === Number(batchDraft.organizationId))) errors.value.organizationId = '产品所属机构已停用或尚未读取，请刷新后选择有效产品。'
   if (Object.keys(errors.value).length) return focusError()
   const payload = batchPayload(batchDraft)
   checkPending = async () => (await listBatches()).find((batch) => batch.batchCode === payload.batchCode)
@@ -195,24 +200,25 @@ function clearFilters() { search.value = ''; productFilter.value = ''; statusFil
       </div>
       <div class="row wrap">
         <button class="action-button" type="button" :disabled="refreshing" @click="refresh">刷新台账</button>
-        <button class="action-button primary" type="button" @click="openProduct">新建产品</button>
+        <button class="action-button primary" type="button" :disabled="organizations.loading.value || !!organizations.error.value || !organizations.data.value?.length" @click="openProduct">新建产品</button>
       </div>
     </GlassPanel>
 
+    <OrganizationHelp :loading="organizations.loading.value" @refresh="organizations.load" /><p v-if="organizations.error.value" class="notice bad" role="alert">{{ organizations.error.value }}</p><p v-else-if="organizations.data.value && !organizations.data.value.length" class="notice wait">没有启用机构，请先创建或启用机构。</p>
     <GlassPanel :padded="false" class="ledger">
       <div class="ledger-head">
         <div class="segmented" role="group" aria-label="台账类型">
           <button type="button" :aria-pressed="tab === 'products'" @click="tab = 'products'">产品台账 <span>{{ productResource.data.value?.length ?? '—' }}</span></button>
           <button type="button" :aria-pressed="tab === 'batches'" @click="tab = 'batches'">生产批次 <span>{{ batchResource.data.value?.length ?? '—' }}</span></button>
         </div>
-        <button v-if="tab === 'batches'" class="action-button primary" type="button" :disabled="!products.length || !!productResource.error.value || productResource.loading.value" @click="openBatch()">新建批次</button>
+        <button v-if="tab === 'batches'" class="action-button primary" type="button" :disabled="!selectableProducts.length || !!organizations.error.value || organizations.loading.value || !!productResource.error.value || productResource.loading.value" @click="openBatch()">新建批次</button>
       </div>
       <form class="catalog-filters" role="search" @submit.prevent>
         <label class="filter-search">搜索台账
           <input v-model="search" type="search" class="field-input" :placeholder="tab === 'products' ? '产品名称、编码、品类或产地' : '批次编码、产品名称或地块'">
         </label>
         <template v-if="tab === 'batches'">
-          <label>所属产品<select v-model="productFilter" class="field-input"><option value="">全部产品</option><option v-for="product in products" :key="product.id" :value="String(product.id)">{{ product.productName }}</option></select></label>
+          <label>所属产品<select v-model="productFilter" class="field-input"><option value="">全部产品</option><option v-for="product in selectableProducts" :key="product.id" :value="String(product.id)">{{ product.productName }}</option></select></label>
           <label>业务状态<select v-model="statusFilter" class="field-input"><option value="">全部状态</option><option value="ACTIVE">生产中</option><option value="CLOSED">已关闭</option><option value="RECALL">已召回</option></select></label>
           <label>上链状态<select v-model="chainFilter" class="field-input"><option value="">全部状态</option><option value="CONFIRMED">上链已确认</option><option value="PENDING">等待上链</option><option value="FAILED">上链失败</option><option value="CHAIN_DISABLED">未上链</option></select></label>
         </template>
@@ -228,7 +234,7 @@ function clearFilters() { search.value = ''; productFilter.value = ''; statusFil
               <tbody><tr v-for="product in productRows" :key="product.id">
                 <td><button class="record-link" type="button" @click="openDetail('product-detail', product.id)">{{ product.productName }}</button><p class="mono muted">{{ product.productCode }}</p></td>
                 <td>{{ product.category }}<p class="muted tiny">{{ product.variety || '品种未记录' }}</p></td>
-                <td>{{ product.originPlace || '—' }}</td><td class="mono">{{ product.organizationId }}</td>
+                <td>{{ product.originPlace || '—' }}</td><td>{{ organizations.names.value.get(product.organizationId) ?? `机构 #${product.organizationId}` }}</td>
                 <td><div class="table-actions"><button class="text-button" type="button" @click="viewBatches(product.id)">查看批次</button><button class="text-button" type="button" @click="openBatch(product.id)">新建批次</button></div></td>
               </tr></tbody>
             </table>
@@ -257,13 +263,14 @@ function clearFilters() { search.value = ''; productFilter.value = ''; statusFil
       <form v-if="mode === 'product'" novalidate @submit.prevent="submitProduct">
         <p class="form-intro muted">带 * 的字段必填。产品编码建立后用于关联生产记录，请保持唯一。</p>
         <fieldset :disabled="saving || uncertain" class="form-grid">
+          <div class="form-field full"><label for="product-organizationId" class="field-label">所属机构 *</label><select id="product-organizationId" v-model="productDraft.organizationId" class="field-input" required :aria-invalid="!!errors.organizationId"><option value="" disabled>选择启用机构</option><option v-for="org in organizations.data.value" :key="org.id" :value="String(org.id)">{{ org.name }} · {{ org.code }}</option></select><p v-if="errors.organizationId" class="field-error">{{ errors.organizationId }}</p><OrganizationHelp :loading="organizations.loading.value" @refresh="organizations.load" /></div>
           <div v-for="field in productFields" :key="field.key" class="form-field">
             <label :for="`product-${field.key}`" class="field-label">{{ field.label }}{{ field.required ? ' *' : '' }}</label>
-            <input :id="`product-${field.key}`" v-model="productDraft[field.key]" class="field-input" :type="field.type" :min="field.type === 'number' ? 1 : undefined" :step="field.type === 'number' ? 1 : undefined" :maxlength="field.max" :required="field.required" :aria-invalid="!!errors[field.key]" :aria-describedby="errors[field.key] ? `product-error-${field.key}` : undefined">
+            <input :id="`product-${field.key}`" v-model="productDraft[field.key]" class="field-input" :type="field.type" :maxlength="field.max" :required="field.required" :aria-invalid="!!errors[field.key]" :aria-describedby="errors[field.key] ? `product-error-${field.key}` : undefined">
             <p v-if="errors[field.key]" :id="`product-error-${field.key}`" class="field-error">{{ errors[field.key] }}</p>
           </div>
           <div class="form-field full"><label for="product-description" class="field-label">产品说明</label><textarea id="product-description" v-model="productDraft.description" class="field-input" rows="3" maxlength="5000"></textarea></div>
-          <p class="muted tiny full">机构编号请填写已确认的业务机构 ID；当前尚无机构选择页面。</p>
+          <p class="muted tiny full">所属机构由启用机构清单选择，批次沿用产品所属机构。</p>
         </fieldset>
         <div class="form-actions"><button class="action-button primary" type="submit" :disabled="saving || uncertain">{{ saving ? '保存中…' : '保存产品' }}</button></div>
       </form>
@@ -271,8 +278,8 @@ function clearFilters() { search.value = ''; productFilter.value = ''; statusFil
       <form v-else-if="mode === 'batch'" novalidate @submit.prevent="submitBatch">
         <p class="form-intro muted">批次保存后会提交摘要上链。请核对所属产品、生产日期与编码。</p>
         <fieldset :disabled="saving || uncertain" class="form-grid">
-          <div class="form-field full"><label for="batch-productId" class="field-label">所属产品 *</label><select id="batch-productId" v-model="batchDraft.productId" class="field-input" required :aria-invalid="!!errors.productId" :aria-describedby="errors.productId ? 'batch-error-productId' : undefined"><option value="">请选择产品</option><option v-for="product in products" :key="product.id" :value="String(product.id)">{{ product.productName }} · {{ product.productCode }}</option></select><p v-if="errors.productId" id="batch-error-productId" class="field-error">{{ errors.productId }}</p></div>
-          <p class="muted tiny full">机构编号：{{ batchDraft.organizationId || '随所属产品带入' }}</p>
+          <div class="form-field full"><label for="batch-productId" class="field-label">所属产品 *</label><select id="batch-productId" v-model="batchDraft.productId" class="field-input" required :aria-invalid="!!errors.productId" :aria-describedby="errors.productId ? 'batch-error-productId' : undefined"><option value="">请选择产品</option><option v-for="product in selectableProducts" :key="product.id" :value="String(product.id)">{{ product.productName }} · {{ product.productCode }}</option></select><p v-if="errors.productId" id="batch-error-productId" class="field-error">{{ errors.productId }}</p></div>
+          <p class="muted tiny full">所属机构：{{ organizations.names.value.get(Number(batchDraft.organizationId)) || '随所属产品带入' }}</p>
           <p v-if="errors.organizationId" class="field-error full">{{ errors.organizationId }}</p>
           <div v-for="field in batchFields" :key="field.key" class="form-field">
             <label :for="`batch-${field.key}`" class="field-label">{{ field.label }}{{ field.required ? ' *' : '' }}</label>
@@ -295,7 +302,7 @@ function clearFilters() { search.value = ''; productFilter.value = ''; statusFil
           <dl v-if="productDetail.data.value" class="detail-grid"><template v-for="[label, value] in [
             ['产品名称', productDetail.data.value.productName], ['产品编码', productDetail.data.value.productCode],
             ['品类', productDetail.data.value.category], ['品种', productDetail.data.value.variety],
-            ['产地', productDetail.data.value.originPlace], ['机构编号', productDetail.data.value.organizationId], ['产品说明', productDetail.data.value.description],
+            ['产地', productDetail.data.value.originPlace], ['所属机构', organizations.names.value.get(productDetail.data.value.organizationId) ?? `机构 #${productDetail.data.value.organizationId}`], ['产品说明', productDetail.data.value.description],
           ]" :key="label"><div><dt>{{ label }}</dt><dd>{{ value || '—' }}</dd></div></template></dl>
           <div class="form-actions"><button class="action-button" type="button" @click="viewBatches(selectedId)">查看该产品批次</button><button class="action-button primary" type="button" @click="openBatch(selectedId)">新建批次</button></div>
         </ResourceState>
@@ -305,7 +312,7 @@ function clearFilters() { search.value = ''; productFilter.value = ''; statusFil
           <template v-if="batchDetail.data.value">
             <dl class="detail-grid"><template v-for="[label, value] in [
               ['批次编码', batchDetail.data.value.batchCode], ['所属产品', productMap.get(batchDetail.data.value.productId)?.productName || `产品 #${batchDetail.data.value.productId}`],
-              ['机构编号', batchDetail.data.value.organizationId], ['生产地块', batchDetail.data.value.productionArea],
+              ['所属机构', organizations.names.value.get(batchDetail.data.value.organizationId) ?? `机构 #${batchDetail.data.value.organizationId}`], ['生产地块', batchDetail.data.value.productionArea],
               ['种植日期', formatDate(batchDetail.data.value.plantDate)], ['采收日期', formatDate(batchDetail.data.value.harvestDate)],
               ['业务状态', batchStatusLabel(batchDetail.data.value.status)], ['创建时间', formatDateTime(batchDetail.data.value.createTime)],
             ]" :key="label"><div><dt>{{ label }}</dt><dd>{{ value || '—' }}</dd></div></template></dl>

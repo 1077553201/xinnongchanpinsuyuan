@@ -27,6 +27,19 @@ import org.nongchanpin.chain.ChainStatus;
 
 class BatchServiceTest {
     @Test
+    void inactiveOrganizationCannotCreateBatchOrSendChainTransaction() {
+        ProductMapper products = mock(ProductMapper.class);
+        ProductBatchMapper batches = mock(ProductBatchMapper.class);
+        ChainService chain = mock(ChainService.class);
+        ChainTransactionService transactions = mock(ChainTransactionService.class);
+        ProductEntity product = new ProductEntity(); product.setOrganizationId(1L);
+        when(products.findById(1L)).thenReturn(product);
+        BatchService service = new BatchService(products, batches, chain, transactions, new ChainWriteSupport(transactions), new PayloadService(), new ContractConfig());
+        CreateBatchRequest request = new CreateBatchRequest(); request.setProductId(1L); request.setOrganizationId(1L);
+        assertThrows(IllegalArgumentException.class, () -> service.create(request));
+        verifyNoInteractions(batches, chain, transactions);
+    }
+    @Test
     void createPersistsBatchBuildsHashCallsChainAndWritesStatus() {
         ProductMapper productMapper = mock(ProductMapper.class);
         ProductBatchMapper batchMapper = mock(ProductBatchMapper.class);
@@ -42,6 +55,7 @@ class BatchServiceTest {
         product.setOrganizationId(1L);
         product.setProductCode("P001");
         when(productMapper.findById(1L)).thenReturn(product);
+        when(productMapper.lockActiveOrganization(1L)).thenReturn(1L);
         doAnswer(invocation -> {
             ProductBatchEntity batch = invocation.getArgument(0);
             batch.setId(9L);
@@ -89,6 +103,7 @@ class BatchServiceTest {
         ProductEntity product = new ProductEntity();
         product.setOrganizationId(1L);
         when(products.findById(1L)).thenReturn(product);
+        when(products.lockActiveOrganization(1L)).thenReturn(1L);
         CreateBatchRequest request = new CreateBatchRequest();
         request.setProductId(1L);
         request.setOrganizationId(2L);

@@ -16,7 +16,7 @@ public class ProductionController {
     private final ProductionService production;
 
     @GetMapping("/organizations")
-    public CommonResponse organizations() { return CommonResponse.ok(production.organizations()); }
+    public CommonResponse organizations(@RequestParam(defaultValue = "false") boolean includeInactive) { return CommonResponse.ok(includeInactive ? production.organizationNames() : production.organizations()); }
 
     @GetMapping("/plots")
     public CommonResponse plots() { return CommonResponse.ok(production.plots()); }

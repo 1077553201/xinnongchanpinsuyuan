@@ -8,6 +8,7 @@ import PackingCodesPanel from '@/components/PackingCodesPanel.vue'
 import SourceQualityPanel from '@/components/SourceQualityPanel.vue'
 import { useAuth } from '@/composables/useAuth'
 import { useAsyncResource } from '@/composables/useAsyncResource'
+import { useOrganizationDirectory } from '@/composables/useOrganizationDirectory'
 import { listCycles, listPlots } from '@/api/production'
 import { harvestDetail, listHarvests, recordHarvest, recordGrade, recordPacking, reconcileHarvest } from '@/api/harvest'
 import { formatDateTime } from '@/types/api'
@@ -15,6 +16,7 @@ import { eventTime } from '@/utils/items'
 import { localDateTime, newOperationKey, operationError, uncertainOperation } from '@/utils/growing'
 
 const route = useRoute(), auth = useAuth()
+const organizations = useOrganizationDirectory()
 const cycles = useAsyncResource(listCycles), plots = useAsyncResource(listPlots)
 const cycleId = ref(typeof route.query.cycle === 'string' ? route.query.cycle : '')
 const selectedId = ref(0)
@@ -34,7 +36,7 @@ const packingSource = computed(() => gradeOptions.value.find(grade => grade.id =
 const kg = (value: number) => Number(value).toFixed(3)
 const unitLabel = (unit: string) => ({ kg: '公斤', g: '克', jin: '市斤' })[unit] ?? unit
 
-onMounted(async () => { await Promise.all([cycles.load(), plots.load()]); if (cycle.value) await lots.load() })
+onMounted(async () => { await Promise.all([cycles.load(), plots.load(), organizations.load()]); if (cycle.value) await lots.load() })
 watch(cycleId, async () => { selectedId.value = 0; notice.value = ''; if (cycle.value) await lots.load() })
 watch(selectedId, () => { if (selectedId.value) void detail.load() })
 async function refresh() { await lots.load(); if (selectedId.value) await detail.load() }
@@ -78,7 +80,7 @@ async function save() {
       <p v-if="cycle?.status === 'ENDED'" class="notice">本轮种植已结束，不能新增采收；已完成分级的历史采收仍可继续记录实际包装。</p>
     </GlassPanel>
     <p v-if="notice" class="notice" role="status">{{ notice }}</p>
-    <GlassPanel v-if="cycle" padded="large" class="stack">
+    <GlassPanel v-if="cycle" padded="large" class="stack"><p class="muted">所属机构：{{ organizations.names.value.get(plotMap.get(cycle.plotId)?.organizationId ?? 0) ?? `机构 #${plotMap.get(cycle.plotId)?.organizationId}` }}</p>
       <div class="section-head"><h2 class="display">分次采收批次</h2><button v-if="auth.canWrite.value && cycle.status === 'ACTIVE'" class="action-button primary" @click="open('harvest')">登记实际采收</button></div>
       <p class="muted small">最近最多 200 批，未完成分级核对的优先显示。每批重量为扣除容器后的实际净重，不代表质量合格。</p>
       <ResourceState :loading="lots.loading.value" :error="lots.error.value" :empty="!lots.data.value?.length" empty-text="本轮尚无实际采收记录。" @retry="lots.load">

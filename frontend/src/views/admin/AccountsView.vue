@@ -6,15 +6,16 @@ import ResourceState from '@/components/ResourceState.vue'
 import AppDialog from '@/components/AppDialog.vue'
 import { useAuth } from '@/composables/useAuth'
 import { useAsyncResource } from '@/composables/useAsyncResource'
+import { useOrganizationDirectory } from '@/composables/useOrganizationDirectory'
+import OrganizationHelp from '@/components/OrganizationHelp.vue'
 import { ApiError, get, post } from '@/api/http'
-import { listOrganizations } from '@/api/production'
 
 interface Account { id: number; username: string; displayName: string; organizationId: number; status: string; roles: string[] }
 const auth = useAuth()
 const router = useRouter()
 const accounts = useAsyncResource(() => get<Account[]>('/auth/accounts'))
-const organizations = useAsyncResource(listOrganizations)
-const names = computed(() => new Map((organizations.data.value ?? []).map(org => [org.id, org.name])))
+const organizations = useOrganizationDirectory()
+const names = computed(() => organizations.names.value)
 const draft = reactive({ username: '', password: '', displayName: '', organizationId: '', role: 'MANAGER' })
 const password = reactive({ currentPassword: '', newPassword: '', confirm: '' })
 const mode = ref<'create' | 'password' | 'disable' | null>(null)
@@ -66,7 +67,7 @@ async function save() {
       <p v-if="notice" class="notice" role="status">{{ notice }}</p>
     </GlassPanel>
     <GlassPanel v-if="auth.isAdmin.value" padded="large">
-      <div class="section-head"><h2 class="display">人员账号</h2><div class="actions"><button class="action-button" :disabled="accounts.loading.value" @click="refresh">刷新</button><button class="action-button primary" :disabled="organizations.loading.value || !!organizations.error.value" @click="open('create')">创建账号</button></div></div>
+      <div class="section-head"><h2 class="display">人员账号</h2><OrganizationHelp :loading="organizations.loading.value" @refresh="organizations.load" /><div class="actions"><button class="action-button" :disabled="accounts.loading.value" @click="refresh">刷新</button><button class="action-button primary" :disabled="organizations.loading.value || !!organizations.error.value" @click="open('create')">创建账号</button></div></div>
       <ResourceState :loading="accounts.loading.value" :error="accounts.error.value" @retry="refresh">
         <div class="table-scroll"><table class="data-table"><thead><tr><th>人员 / 账号</th><th>所属机构</th><th>权限</th><th>状态</th><th>操作</th></tr></thead><tbody><tr v-for="account in accounts.data.value" :key="account.id"><td>{{ account.displayName }}<p class="mono muted">{{ account.username }}</p></td><td>{{ names.get(account.organizationId) ?? account.organizationId }}</td><td>{{ account.roles.map(role => labels[role] ?? role).join('、') }}</td><td>{{ account.status === 'ACTIVE' ? '可登录' : '已停用' }}</td><td><button v-if="account.status === 'ACTIVE' && account.id !== auth.user.value?.id" class="text-button" @click="open('disable', account)">停用</button><span v-else class="muted">{{ account.id === auth.user.value?.id ? '当前账号' : '—' }}</span></td></tr></tbody></table></div>
       </ResourceState>
@@ -75,8 +76,8 @@ async function save() {
       <form class="management" @submit.prevent="save">
         <fieldset :disabled="busy || uncertain">
           <template v-if="mode === 'create'">
-            <label class="form-field">所属机构<select v-model="draft.organizationId" class="field-input" required><option value="" disabled>请选择</option><option v-for="org in organizations.data.value" :key="org.id" :value="String(org.id)">{{ org.name }}</option></select></label>
-            <label class="form-field">使用人姓名<input v-model.trim="draft.displayName" class="field-input" required maxlength="64"></label>
+            <label class="form-field">所属机构<select v-model="draft.organizationId" class="field-input" required><option value="" disabled>请选择</option><option v-for="org in organizations.data.value" :key="org.id" :value="String(org.id)">{{ org.name }} · {{ org.code || `#${org.id}` }}</option></select></label>
+            <OrganizationHelp :loading="organizations.loading.value" @refresh="organizations.load" /><p v-if="organizations.error.value" class="notice bad">{{ organizations.error.value }}</p><p v-else-if="!organizations.loading.value && !organizations.data.value?.length" class="notice wait">尚无启用机构，请先创建或启用机构。</p><label class="form-field">使用人姓名<input v-model.trim="draft.displayName" class="field-input" required maxlength="64"></label>
             <label class="form-field">登录账号<input v-model.trim="draft.username" class="field-input" required pattern="[A-Za-z0-9_-]{3,64}" maxlength="64" autocomplete="off" placeholder="3–64 位字母、数字、短横线或下划线"></label>
             <label class="form-field">初始密码<input v-model="draft.password" class="field-input" type="password" required minlength="12" maxlength="128" autocomplete="new-password"></label>
             <label class="form-field">权限角色<select v-model="draft.role" class="field-input"><option value="MANAGER">生产人员 · 本机构生产读写</option><option value="VIEWER">只读人员 · 本机构查询</option><option value="ADMIN">管理员 · 全部机构与系统配置</option></select></label>

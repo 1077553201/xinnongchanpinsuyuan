@@ -26,8 +26,15 @@ class MonitoringServiceTest {
         when(production.cycle(2L)).thenReturn(cycle); when(production.lockCycle(2L)).thenReturn(cycle);
         FarmPlotEntity plot = new FarmPlotEntity(); plot.setId(3L); plot.setOrganizationId(10L);
         when(production.lockPlot(3L)).thenReturn(plot); when(production.plot(3L)).thenReturn(plot);
+        when(production.activeOrganization(10L)).thenReturn(1);
     }
     @AfterEach void cleanup() { AccessContext.clear(); }
+    @Test void disabledOrganizationCannotReceiveNewBinding() {
+        when(production.activeOrganization(10L)).thenReturn(0);
+        MonitoringService.Bind request = new MonitoringService.Bind(); request.setDeviceId(8L); request.setCycleId(2L);
+        assertThrows(IllegalArgumentException.class, () -> service.bind(request));
+        verify(mapper, never()).insertBinding(any());
+    }
     private IotSensorReadingEntity reading() {
         IotSensorReadingEntity reading = new IotSensorReadingEntity(); reading.setId(11L); reading.setFarmId(1L);
         reading.setGatewayCode("GW"); reading.setReportedAt(LocalDateTime.now().minusMinutes(5)); return reading;

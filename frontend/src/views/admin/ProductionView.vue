@@ -6,17 +6,19 @@ import ResourceState from '@/components/ResourceState.vue'
 import StatusChip from '@/components/StatusChip.vue'
 import AppDialog from '@/components/AppDialog.vue'
 import { useAsyncResource } from '@/composables/useAsyncResource'
+import { useOrganizationDirectory } from '@/composables/useOrganizationDirectory'
+import OrganizationHelp from '@/components/OrganizationHelp.vue'
 import { useAuth } from '@/composables/useAuth'
 import { ApiError } from '@/api/http'
 import { listProducts } from '@/api/catalog'
-import { endPlanting, listCycles, listOrganizations, listPlots, registerPlot, startPlanting } from '@/api/production'
+import { endPlanting, listCycles, listPlots, registerPlot, startPlanting } from '@/api/production'
 import type { FarmPlot, PlantingCycle } from '@/api/production'
 import { formatDate } from '@/types/api'
 
 const plotsResource = useAsyncResource(listPlots)
 const auth = useAuth()
 const cyclesResource = useAsyncResource(listCycles)
-const organizations = useAsyncResource(listOrganizations)
+const organizations = useOrganizationDirectory()
 const products = useAsyncResource(listProducts)
 const resources = [plotsResource, cyclesResource, organizations, products]
 const plots = computed(() => plotsResource.data.value ?? [])
@@ -52,7 +54,7 @@ function today() {
 const plotDraft = reactive({ organizationId: '', plotCode: '', plotName: '', location: '', areaMu: '', managerName: '', notes: '' })
 const cycleDraft = reactive({ productId: '', cycleCode: '', variety: '', plantedOn: today(), expectedHarvestOn: '', managerName: '', environmentNotes: '' })
 const endDraft = reactive({ endedOn: today(), reason: '' })
-const availableProducts = computed(() => (products.data.value ?? []).filter((product) => product.organizationId === selected.value?.organizationId && product.status === 'ACTIVE'))
+const availableProducts = computed(() => (products.data.value ?? []).filter((product) => product.organizationId === selected.value?.organizationId && product.status === 'ACTIVE' && organizations.data.value?.some(org => org.id === product.organizationId)))
 const history = computed(() => cycles.value.filter((cycle) => cycle.plotId === selected.value?.id))
 const title = computed(() => ({ plot: '登记地块', start: '开启本轮种植', end: '结束本轮种植', detail: selected.value?.plotName ?? '地块档案' })[mode.value ?? 'detail'])
 watch(() => cycleDraft.productId, (id) => {
@@ -121,7 +123,8 @@ async function save() {
 
     <p v-if="notice" class="notice" role="status">{{ notice }}</p>
     <p v-if="organizations.error.value" class="notice bad" role="alert">机构读取失败，暂不能登记地块。<button class="text-button" @click="organizations.load">重试</button></p>
-    <p v-else-if="organizations.data.value && !organizations.data.value.length" class="notice wait">尚无有效机构，请先完成经营主体资料配置。</p>
+    <p v-else-if="organizations.data.value && !organizations.data.value.length" class="notice wait">尚无启用机构，请先创建或启用经营主体。</p>
+    <OrganizationHelp :loading="organizations.loading.value" @refresh="organizations.load" />
     <p v-if="products.error.value" class="notice bad" role="alert">产品读取失败，暂不能开启种植。<button class="text-button" @click="products.load">重试</button></p>
 
     <GlassPanel padded="large">
@@ -149,6 +152,7 @@ async function save() {
               </template>
               <template v-else><strong>等待下一轮生长</strong><span class="muted">历史种植档案持续保留</span></template>
             </div>
+            <p class="muted">{{ organizations.names.value.get(plot.organizationId) ?? `机构 #${plot.organizationId}` }}</p>
             <p class="plot-meta">{{ plot.areaMu }} 亩 <span>·</span> 地块负责人 {{ plot.managerName }}</p>
             <div class="actions">
               <button class="action-button" @click="open('detail', plot)">查看档案</button>
@@ -194,8 +198,8 @@ async function save() {
       <form v-else class="management" @submit.prevent="save">
         <fieldset :disabled="busy || uncertain">
           <template v-if="mode === 'plot'">
-            <label class="form-field">所属机构<select v-model="plotDraft.organizationId" class="field-input" required><option value="" disabled>请选择经营主体</option><option v-for="org in organizations.data.value" :key="org.id" :value="String(org.id)">{{ org.name }}</option></select></label>
-            <div class="form-grid">
+            <label class="form-field">所属机构<select v-model="plotDraft.organizationId" class="field-input" required><option value="" disabled>请选择经营主体</option><option v-for="org in organizations.data.value" :key="org.id" :value="String(org.id)">{{ org.name }} · {{ org.code || `#${org.id}` }}</option></select></label>
+            <OrganizationHelp :loading="organizations.loading.value" @refresh="organizations.load" /><div class="form-grid">
               <label class="form-field">地块编码<input v-model.trim="plotDraft.plotCode" class="field-input" required maxlength="64" pattern="[A-Za-z0-9_-]{1,64}" placeholder="例如 EAST-01"><small class="muted">使用字母、数字、短横线或下划线</small></label>
               <label class="form-field">地块名称<input v-model.trim="plotDraft.plotName" class="field-input" required maxlength="128" placeholder="例如 东边一号棚"></label>
               <label class="form-field full">地块位置<input v-model.trim="plotDraft.location" class="field-input" required maxlength="255" placeholder="填写可定位到这块地的位置"></label>
@@ -207,7 +211,7 @@ async function save() {
 
           <template v-if="mode === 'start' && selected">
             <p class="notice">{{ selected.plotName }} · {{ selected.plotCode }}<br>本次登记实际开始的种植，计划中的种植请在开始后登记。</p>
-            <p v-if="!availableProducts.length" class="notice wait">该机构尚无有效产品，请联系管理员登记产品资料。</p>
+            <p v-if="!availableProducts.length" class="notice wait">所属机构已停用或尚无有效产品，请核对机构与产品资料。</p>
             <div class="form-grid cycle-form">
               <label class="form-field full">种植周期编码<input v-model.trim="cycleDraft.cycleCode" class="field-input" required maxlength="64" pattern="[A-Za-z0-9_-]{1,64}" placeholder="例如 EAST-01-2026-A"></label>
               <label class="form-field">种植产品<select v-model="cycleDraft.productId" class="field-input" required><option value="" disabled>选择同机构产品</option><option v-for="product in availableProducts" :key="product.id" :value="String(product.id)">{{ product.productName }} · {{ product.productCode }}</option></select></label>

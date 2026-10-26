@@ -7,15 +7,17 @@ import GrowingRulesPanel from '@/components/growing/GrowingRulesPanel.vue'
 import FarmTasksPanel from '@/components/growing/FarmTasksPanel.vue'
 import EnvironmentCasesPanel from '@/components/growing/EnvironmentCasesPanel.vue'
 import { useAsyncResource } from '@/composables/useAsyncResource'
+import { useOrganizationDirectory } from '@/composables/useOrganizationDirectory'
 import { listCycles, listPlots } from '@/api/production'
 const route = useRoute()
+const organizations = useOrganizationDirectory()
 const cycles = useAsyncResource(listCycles), plots = useAsyncResource(listPlots)
 const cycleId = ref(typeof route.query.cycle === 'string' ? route.query.cycle : '')
 const tab = ref<'rules' | 'tasks' | 'cases'>('tasks')
 const selected = computed(() => cycles.data.value?.find(cycle => cycle.id === Number(cycleId.value)))
 const plotMap = computed(() => new Map((plots.data.value ?? []).map(plot => [plot.id, plot])))
 const tabs = [{ key: 'tasks', label: '农事作业' }, { key: 'rules', label: '环境要求' }, { key: 'cases', label: '异常处置' }] as const
-async function refresh() { await Promise.all([cycles.load(), plots.load()]) }
+async function refresh() { await Promise.all([cycles.load(), plots.load(), organizations.load()]) }
 onMounted(refresh)
 </script>
 <template>
@@ -28,7 +30,7 @@ onMounted(refresh)
       </ResourceState>
       <div v-if="selected" class="actions" role="group" aria-label="生产记录类型"><button v-for="item in tabs" :key="item.key" type="button" class="action-button" :class="{ primary: tab === item.key }" :aria-pressed="tab === item.key" @click="tab = item.key">{{ item.label }}</button></div>
     </GlassPanel>
-    <template v-if="selected">
+    <template v-if="selected"><p class="muted">所属机构：{{ organizations.names.value.get(plotMap.get(selected.plotId)?.organizationId ?? 0) ?? `机构 #${plotMap.get(selected.plotId)?.organizationId}` }}</p>
       <GrowingRulesPanel v-if="tab === 'rules'" :key="selected.id" :cycle="selected" />
       <FarmTasksPanel v-if="tab === 'tasks'" :key="selected.id" :cycle="selected" :organization-id="plotMap.get(selected.plotId)?.organizationId ?? 0" />
       <EnvironmentCasesPanel v-if="tab === 'cases'" :key="selected.id" :cycle-id="selected.id" />

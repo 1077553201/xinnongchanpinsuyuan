@@ -71,6 +71,7 @@ const allNavItems = [
   { to: '/admin/evidence-reconciliation', label: '证据对账' },
   { to: '/admin/ai', label: 'AI 助手' },
   { to: '/admin/accounts', label: '账号与权限' },
+  { to: '/admin/organizations', label: '机构管理' },
 ]
 const navItems = computed(() => allNavItems.filter(item => auth.isAdmin.value || ['/admin', '/admin/production', '/admin/farming', '/admin/harvest', '/admin/inventory', '/admin/sales', '/admin/transport', '/admin/rejections', '/admin/monitoring', '/admin/ai', '/admin/accounts', '/admin/evidence-reconciliation'].includes(item.to)))
 const title = computed(() => (route.meta.title as string | undefined) ?? '')

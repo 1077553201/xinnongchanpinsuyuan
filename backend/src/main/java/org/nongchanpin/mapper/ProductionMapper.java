@@ -10,9 +10,16 @@ import org.nongchanpin.model.entity.PlantingCycleEntity;
 public interface ProductionMapper {
     @Select("SELECT c.id,CONCAT_WS(' · ',p.plot_name,c.cycle_code,c.product_name,c.variety) AS label FROM planting_cycle c JOIN farm_plot p ON p.id=c.plot_id WHERE c.status='ACTIVE' AND (#{org} IS NULL OR p.organization_id=#{org}) AND (#{search}='' OR LOCATE(#{search},CONCAT_WS(' ',p.plot_name,c.cycle_code,c.product_name,c.variety))>0) ORDER BY c.id DESC LIMIT 50")
     List<Map<String,Object>> agentCycles(@Param("org")Long org,@Param("search")String search);
-    @Select("SELECT id, org_name AS name FROM sys_organization WHERE status = 'ACTIVE' "
+    @Select("SELECT id, org_name AS name, org_code AS code, status FROM sys_organization WHERE status = 'ACTIVE' "
             + "AND (#{orgId} IS NULL OR id = #{orgId}) ORDER BY id")
     List<Map<String, Object>> organizations(@Param("orgId") Long orgId);
+
+    @Select("SELECT id,org_name AS name,org_code AS code,status FROM sys_organization WHERE status<>'DELETED' AND (#{orgId} IS NULL OR id=#{orgId}) ORDER BY id")
+    List<Map<String, Object>> organizationNames(@Param("orgId") Long orgId);
+
+    @Options(flushCache = Options.FlushCachePolicy.TRUE)
+    @Select("SELECT id FROM sys_organization WHERE id=#{id} FOR UPDATE")
+    Long lockOrganization(Long id);
 
     @Select("SELECT COUNT(*) FROM sys_organization WHERE id = #{id} AND status = 'ACTIVE'")
     int activeOrganization(Long id);

@@ -6,12 +6,14 @@ import ResourceState from '@/components/ResourceState.vue'
 import InventoryViewTabs from '@/components/InventoryViewTabs.vue'
 import QuarantineStockPanel from '@/components/QuarantineStockPanel.vue'
 import { useAsyncResource } from '@/composables/useAsyncResource'
+import { useOrganizationDirectory } from '@/composables/useOrganizationDirectory'
 import { useAuth } from '@/composables/useAuth'
 import { listWarehouses, warehouseStock } from '@/api/inventory'
 import { formatDateTime } from '@/types/api'
 
 const route = useRoute(), router = useRouter()
 const auth = useAuth()
+const organizations = useOrganizationDirectory()
 const warehouses = useAsyncResource(listWarehouses)
 const warehouseId = computed(() => Number(route.params.warehouseId) || 0)
 const selected = ref(String(warehouseId.value || ''))
@@ -24,7 +26,7 @@ function choose() { void router.push({ name: 'admin-warehouse-stock', params: { 
 function filter() { appliedSearch.value = search.value.trim(); page.value = 1; void load() }
 async function turn(next: number) { page.value = next; await load() }
 watch(warehouseId, () => { selected.value = String(warehouseId.value || ''); page.value = 1; search.value = ''; appliedSearch.value = ''; includeEmpty.value = false; void load() })
-onMounted(async () => { await warehouses.load(); await load() })
+onMounted(async () => { await Promise.all([warehouses.load(), organizations.load()]); await load() })
 </script>
 
 <template>
@@ -42,7 +44,7 @@ onMounted(async () => { await warehouses.load(); await load() })
       <QuarantineStockPanel :warehouse-id="warehouseId" />
       <GlassPanel padded="large" class="stack">
         <ResourceState :loading="stock.loading.value" :error="stock.error.value" @retry="load"><template v-if="stock.data.value">
-          <div class="section-head"><div><p class="eyebrow">{{ stock.data.value.warehouse.warehouseCode }}</p><h2 class="display">{{ stock.data.value.warehouse.warehouseName }}</h2></div><p class="muted">{{ stock.data.value.warehouse.location }}</p></div>
+          <div class="section-head"><div><p class="eyebrow">{{ stock.data.value.warehouse.warehouseCode }}</p><h2 class="display">{{ stock.data.value.warehouse.warehouseName }}</h2><p class="muted">所属机构：{{ organizations.names.value.get(stock.data.value.warehouse.organizationId) ?? `机构 #${stock.data.value.warehouse.organizationId}` }}</p></div><p class="muted">{{ stock.data.value.warehouse.location }}</p></div>
           <div class="summary-grid"><article class="storage-card"><span>本仓当前在库批次</span><strong>{{ stock.data.value.summary.batchCount }} 批</strong></article><article class="storage-card"><span>本仓当前在库净重</span><strong>{{ kg(stock.data.value.summary.weightKg) }} kg</strong></article></div>
           <div class="unit-balances"><span v-for="item in stock.data.value.units" :key="item.packageUnit" class="unit-balance">{{ item.packageCount }} {{ item.packageUnit }} · {{ kg(item.weightKg) }} kg</span><p v-if="!stock.data.value.units.length" class="muted">本仓目前没有在库货物。</p></div>
           <p class="muted small">汇总覆盖本仓所有在库货物，不随下方搜索、分页或已清空批次开关变化。箱、袋等不同单位不合并成一个件数。</p>

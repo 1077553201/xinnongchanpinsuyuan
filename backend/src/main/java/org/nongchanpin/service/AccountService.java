@@ -80,6 +80,7 @@ public class AccountService {
     }
     @Transactional public Long create(Create request) {
         AccessContext.admin();
+        production.lockOrganization(request.getOrganizationId());
         if (production.activeOrganization(request.getOrganizationId()) != 1) throw new IllegalArgumentException("机构不存在或已停用。");
         AccountEntity account = new AccountEntity();
         account.setOrganizationId(request.getOrganizationId()); account.setUsername(request.getUsername());
