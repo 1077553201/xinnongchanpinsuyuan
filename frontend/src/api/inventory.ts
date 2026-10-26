@@ -14,7 +14,7 @@ export interface InventoryPosition {
 }
 export interface InventoryMovement {
   id: number; packingId: number; warehouseId: number; warehouseName: string; movementCode: string; kind: 'IN' | 'OUT' | 'LOSS'
-  packageCount: number; packageUnit: string; weightKg: number; occurredAt: string; performerName: string
+  packageCount: number; effectiveCount?: number; lastCorrectionAt?: string; packageUnit: string; weightKg: number; occurredAt: string; performerName: string
   destination?: string; reason: string; reference?: string; recorderName: string; recordedAt: string
   salesOrderId?: number; salesOrderCode?: string
 }

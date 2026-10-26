@@ -13,6 +13,8 @@ public class InventoryMovementEntity {
     private String movementCode;
     private String kind;
     private Integer packageCount;
+    private Integer effectiveCount;
+    private LocalDateTime lastCorrectionAt;
     private String packageUnit;
     private BigDecimal weightKg;
     private LocalDateTime occurredAt;

@@ -121,3 +121,5 @@ mvn test
 第十七批迁移 `database/migrations/017_receipt_verification.sql` 为原交易增加回执核验时间及摘要，可运行 `scripts/ApplyReceiptVerificationSchema.java`，保留原哈希、提交信息和业务事实。核验标记保护已确认留档不被迟到回调覆盖；部署本版前升级，无需重新部署合约。
 
 第十八批迁移 `database/migrations/018_rejection_handling.sql` 新增逐件拒收处置单与事件两张表，可运行 `scripts/ApplyRejectionHandlingSchema.java`。先完成此前迁移；只处理已明确逐件拒收的完整包装，不把隔离收货写成普通入库，不自动退款或发链交易。入口为“退回与隔离”和出库拒收包装码，详见 [拒收处置说明](docs/REJECTION_HANDLING_STAGE.md)。
+
+第十九批迁移 `database/migrations/019_inventory_loss_correction.sql` 新增损耗调整表及当前有效库存视图，可运行 `scripts/ApplyLossCorrectionSchema.java`。部署前完成迁移；损耗单提供影响预览和逐版调整，原流水保留，库存按最新有效损耗统一计算。已有调整后不能单独回退为旧库存查询。详见 [损耗数量更正说明](docs/INVENTORY_LOSS_CORRECTION_STAGE.md)。
