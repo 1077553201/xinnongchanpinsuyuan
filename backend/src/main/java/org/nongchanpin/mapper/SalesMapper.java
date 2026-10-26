@@ -11,6 +11,7 @@ public interface SalesMapper {
     @Select("SELECT * FROM sales_order"+FILTER+" ORDER BY (status IN ('OPEN','PARTIAL')) DESC,id DESC LIMIT #{size} OFFSET #{offset}")
     List<SalesOrderEntity> orders(@Param("org") Long org,@Param("search") String search,@Param("status") String status,@Param("offset") long offset,@Param("size") int size);
     @Select("SELECT * FROM sales_order WHERE id=#{id}") SalesOrderEntity order(Long id);
+    @Options(flushCache=Options.FlushCachePolicy.TRUE)
     @Select("SELECT * FROM sales_order WHERE id=#{id} FOR UPDATE") SalesOrderEntity lockOrder(Long id);
     @Select("SELECT * FROM sales_order WHERE request_key=#{key}") SalesOrderEntity orderByRequest(String key);
     String LINE_VIEW="SELECT l.*,h.cycle_id,COALESCE((SELECT SUM(m.package_count) FROM sales_dispatch d JOIN inventory_movement m ON m.id=d.movement_id WHERE d.line_id=l.id),0) AS dispatched_count FROM sales_order_line l JOIN packing_lot p ON p.id=l.packing_id JOIN harvest_grade g ON g.id=p.grade_id JOIN harvest_lot h ON h.id=g.harvest_id ";
