@@ -19,6 +19,8 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       port: 5173,
       strictPort: true,
+      // 允许通过 cloudflared 临时隧道域名访问（Vite 5.4.12+ 默认只放行 localhost/IP）
+      allowedHosts: ['.trycloudflare.com'],
       proxy: {
         // 后端未配置 CORS，开发期统一走 dev 代理，前端零跨域
         '/api': {
