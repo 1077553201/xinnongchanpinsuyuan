@@ -63,6 +63,12 @@ else
     echo "==> 隧道 $TUNNEL 已存在，ID: $TUNNEL_ID"
 fi
 
+# config.yml 里的路径必须是 Windows 原生形式（C:/...），MSYS 的 /c/... cloudflared 读不到
+CFG_DIR_WIN="$CFG_DIR"
+if command -v cygpath >/dev/null 2>&1; then
+    CFG_DIR_WIN="$(cygpath -m "$CFG_DIR")"
+fi
+
 CRED_FILE="$CFG_DIR/$TUNNEL_ID.json"
 if [ ! -f "$CRED_FILE" ]; then
     echo "缺少凭据文件 $CRED_FILE，无法继续。" >&2
@@ -75,7 +81,7 @@ echo "==> 写入 $CONFIG"
 cat > "$CONFIG" <<EOF
 # 由 deploy/cloudflare/setup-named-tunnel.sh 生成
 tunnel: $TUNNEL_ID
-credentials-file: $CFG_DIR/$TUNNEL_ID.json
+credentials-file: $CFG_DIR_WIN/$TUNNEL_ID.json
 
 # 本机 UDP 7844 出站被封，QUIC 连不上，固定走 HTTP/2
 protocol: http2
