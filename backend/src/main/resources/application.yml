@@ -14,7 +14,8 @@ spring:
     active: ${APP_ENV:local}
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:agri_trace}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:agri_trace}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=${DB_CREATE_DATABASE:true}
+    initialization-mode: never
     username: ${DB_USERNAME:replace_me}
     password: ${DB_PASSWORD:replace_me}
   jackson:
@@ -26,6 +27,10 @@ mybatis:
     map-underscore-to-camel-case: true
 
 trace:
+  bootstrap:
+    enabled: ${DB_INIT_ENABLED:true}
+    admin-username: ${INIT_ADMIN_USERNAME:admin}
+    admin-password: ${INIT_ADMIN_PASSWORD:}
   public-trace-base-url: ${PUBLIC_TRACE_BASE_URL:http://127.0.0.1:5173/}
   fisco:
     enabled: ${FISCO_ENABLED:false}

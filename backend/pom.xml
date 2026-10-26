@@ -102,6 +102,16 @@
         
     </dependencies>
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>../database</directory>
+                <targetPath>db</targetPath>
+                <includes><include>schema.sql</include></includes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

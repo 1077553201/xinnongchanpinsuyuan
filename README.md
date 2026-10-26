@@ -38,7 +38,7 @@
 环境：Java 11、Maven、Node.js/npm、MySQL 8、FISCO BCOS 3.11；MQTT 可选使用 `deploy/emqx/`。WSL 服务要能通过 Windows 上的实际监听地址/端口访问。
 
 1. 从 `.env.example` 建立本地 `.env`，填写数据库、MQTT 等连接配置；FISCO 证书与私钥保持在忽略的本地目录/配置内。
-2. 新环境按 `database/schema.sql` 初始化 `agri_trace`。现有库先核对结构；不要为了演示重置数据库。`seed.sql` 是可选示例，不会由启动脚本自动执行。
+2. 后端启动会按配置的 `DB_NAME` 自动创建缺失数据库和表，空用户库自动建立“初始农场”和管理员。首次启动前在本地 `.env` 设置 `INIT_ADMIN_USERNAME=admin`、`INIT_ADMIN_PASSWORD=你自己的12至128位密码`；已有用户时不创建或重置账号，无须补初始密码。数据库账号需要建库/建表/建视图权限；无建库权限时先创建数据库并设置 `DB_CREATE_DATABASE=false`。`seed.sql` 不会自动执行，不需要导入演示数据。
 3. 在仓库根目录启动后端：
 
 ```powershell
