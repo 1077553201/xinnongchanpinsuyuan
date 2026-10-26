@@ -2,6 +2,8 @@
 
 面向农场管理与消费者查询的单品溯源系统。MySQL 保存业务明细，FISCO BCOS 保存摘要与状态，MQTT 接入设备采样；消费者通过二维码或 NFC 关联入口查询记录。
 
+当前研发重点是稳定已有功能，交付首个可试用版，走通真实传感器、检测车、MQ 网关、数据库、区块链和前后端。执行 [首版交付计划与验收清单](docs/FIRST_TRIAL_RELEASE_PLAN.md)，未完成模块与调研依据见 [缺口报告](docs/UNFINISHED_MODULES_REPORT.md)。软件 QA 不等于实机或田间验收。
+
 ## 当前可用能力
 
 - 产品与批次：台账搜索、筛选、分页、新建、详情、关闭和召回。
@@ -75,7 +77,7 @@ mvn test
 
 ## 尚需独立完成
 
-当前剩余任务与下一轮推进顺序见 [下一阶段优化计划](docs/NEXT_OPTIMIZATION_PLAN.md)：逐项对应原阶段 0–5，区分核心未完成、按试点确定与后续扩展，并列出依赖及验收条件。来源赋码、生产/流转证据、逐码质检版本存证、新来源 NFC 入口、集中对账及原回执核查已具备软件与 QA 验证基础；下一轮推进业务更正与拒收/召回异常留档，真实标签及实地试点仍待验收。报告替代保留原件及历史版本，详见 [质检存证与替代说明](docs/QUALITY_EVIDENCE_STAGE.md)。
+原阶段对应关系与实施历史见 [下一阶段优化计划](docs/NEXT_OPTIMIZATION_PLAN.md)，当前顺序以首版交付计划为准，暂停默认扩展业务更正、退款等模块。来源赋码、生产/流转证据、逐码质检、NFC、集中对账及原回执已有软件与 QA 基础，真实标签及实地试点仍待验收。报告替代说明见 [质检存证与替代记录](docs/QUALITY_EVIDENCE_STAGE.md)。
 
 业务方向与分期见 [生产到销售及 Agent 规划](docs/PRODUCTION_TO_SALES_AGENT_PLAN.md)。本轮新增地块登记、种植周期开启/结束和历史档案，管理台顶部可切换“晨光绿 / 柔光玻璃”，外观选择保存在本机浏览器。
 
@@ -129,3 +131,5 @@ mvn test
 第二十一批迁移 `database/migrations/021_sales_order_replacement.sql` 新增销售订单替代关系表，可运行 `scripts/ApplySalesReplacementSchema.java`。未出库待履约订单支持预览、停止原单并建立替代单，原始资料和关系保留；已出库和交付依赖保持阻止，不退库、不退款、不发链交易。详见 [订单更正与替代说明](docs/SALES_ORDER_REPLACEMENT_STAGE.md)。
 
 第二十二批迁移 `database/migrations/022_sales_dispatch_correction.sql` 新增销售出库更正表并升级当前库存视图，可运行 `scripts/ApplyDispatchCorrectionSchema.java`。仅开放本仓最近、尚无运输安排/逐件绑定/冻结流转证据的销售出库，同步库存及订单剩余数量，原出库保留；后续运输按有效数量读取，归零禁止运输与绑码。部署前迁移，之后不可单独回退旧销售查询或覆盖旧库存视图。详见 [销售出库更正说明](docs/SALES_DISPATCH_CORRECTION_STAGE.md)。
+
+第二十三批迁移 `database/migrations/023_transport_plan_history.sql` 新增运输原计划快照、撤销/替代历史、全历史编码登记与当前计划视图，可运行 `scripts/ApplyTransportPlanSchema.java`。只开放无实际运输事实、逐件绑定或冻结证据的待发运安排，撤销不自动退库，替代保留原档案；迁移前先备份并核对旧有效数量。软件测试及只读联调已完成，新增动作写入验收仍待办理，详见 [运输安排版本说明](docs/TRANSPORT_PLAN_HISTORY_STAGE.md)。

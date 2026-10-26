@@ -13,7 +13,8 @@ import org.nongchanpin.security.*;
 class TransportServiceTest {
     private final TransportMapper mapper=mock(TransportMapper.class);
     private final SalesMapper sales=mock(SalesMapper.class);
-    private final TransportService service=new TransportService(mapper,sales,new PayloadService(),mock(AuditService.class));
+    private final TransportPlanMapper plans=mock(TransportPlanMapper.class);
+    private final TransportService service=new TransportService(mapper,sales,new PayloadService(),mock(AuditService.class),plans);
     private final Shipment shipment=new Shipment();
     private final Actor actor=new Actor();
     @BeforeEach void setup() {
@@ -24,6 +25,9 @@ class TransportServiceTest {
         SalesOrderEntity order=new SalesOrderEntity();order.setId(11L);order.setOrganizationId(3L);order.setCustomerName("原收货方");order.setDeliveryAddress("原收货地址");order.setStatus("CLOSED");when(sales.order(11L)).thenReturn(order);
     }
     @AfterEach void clear(){AccessContext.clear();}
+    @Test void creationFreezesInitialQuantityAndClaimsCode(){SalesDispatchEntity d=sales.dispatch(9L);d.setPackageUnit("盒");doAnswer(c->{Shipment s=c.getArgument(0);s.setId(8L);return 1;}).when(mapper).insert(any());service.create(create());verify(plans).origin(argThat(s->s.getId()==8L&&s.getPackageCount()==3&&"盒".equals(s.getPackageUnit())));verify(plans).claimCode("SHIP-TEST",8L);}
+    @Test void globalHistoricalCodeConflictCannotFinishNewCreation(){doThrow(new org.springframework.dao.DuplicateKeyException("duplicate historical code")).when(plans).claimCode(anyString(),any());assertThrows(IllegalArgumentException.class,()->service.create(create()));}
+    @Test void cancelledArrangementCannotAddAnyTransportEvent(){shipment.setStatus("CANCELLED");assertThrows(IllegalArgumentException.class,()->service.record(7L,event("DEPART")));assertThrows(IllegalArgumentException.class,()->service.record(7L,event("UPDATE")));verify(mapper,never()).insertEvent(any());}
     @Test void zeroQuantityObservedAfterOrderLockCannotCreateTransport(){SalesDispatchEntity positive=sales.dispatch(9L),zero=new SalesDispatchEntity();zero.setId(9L);zero.setLineId(10L);zero.setPackageCount(0);when(sales.dispatch(9L)).thenReturn(positive,zero);assertThrows(IllegalArgumentException.class,()->service.create(create()));verify(mapper,never()).insert(any());}
     @Test void departureCannotPrecedeLatestQuantityCorrection(){shipment.setCorrectionRecordedAt(LocalDateTime.now().minusMinutes(30));assertThrows(IllegalArgumentException.class,()->service.record(7L,event("DEPART")));verify(mapper,never()).insertEvent(any());}
     private TransportRequests.Create create(){TransportRequests.Create r=new TransportRequests.Create();r.setDispatchId(9L);r.setShipmentCode("SHIP-TEST");r.setCarrier("承运方");r.setDriverName("联系人");r.setRequestKey("00000000-0000-4000-8000-000000000001");return r;}

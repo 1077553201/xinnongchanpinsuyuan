@@ -10,8 +10,8 @@ public final class TransportModels {
         private Long id, dispatchId, organizationId, orderId, packingId, warehouseId;
         private String shipmentCode, carrier, trackingReference, driverName, driverContact, recipient, deliveryAddress, notes, status;
         private String orderCode, productName, variety, packingCode, warehouseName, packageUnit, movementCode;
-        private Integer packageCount;
-        private LocalDateTime dispatchedAt, recordedAt, correctionRecordedAt;
+        private Integer packageCount,planRevision;
+        private LocalDateTime dispatchedAt, recordedAt, correctionRecordedAt,planRecordedAt;
         private Long recordedBy;
         private String recorderName;
         @JsonIgnore private String requestKey;

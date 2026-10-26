@@ -21,11 +21,12 @@ public class TransportService {
     private final SalesMapper sales;
     private final PayloadService payloads;
     private final AuditService audit;
+    private final TransportPlanMapper plans;
 
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public Map<String,Object> list(String search,String status,int page,int size) {
         String term=text(search),state=text(status);
-        if(term.length()>128 || !List.of("","PLANNED","IN_TRANSIT","DELIVERED","DELIVERY_ISSUE").contains(state) || page<1 || size<1 || size>100) throw new IllegalArgumentException("请核对搜索、状态与分页参数。");
+        if(term.length()>128 || !List.of("","PLANNED","IN_TRANSIT","DELIVERED","DELIVERY_ISSUE","CANCELLED").contains(state) || page<1 || size<1 || size>100) throw new IllegalArgumentException("请核对搜索、状态与分页参数。");
         long total=transport.count(AccessContext.organization(),term,state),current=Math.min((long)page,Math.max(1,(total+size-1)/size));
         return Map.of("rows",transport.list(AccessContext.organization(),term,state,(current-1)*size,size),"total",total,"page",current,"pageSize",size);
     }
@@ -43,11 +44,14 @@ public class TransportService {
         if(previous!=null){same(hash,previous.getRequestHash());return transport.shipment(previous.getId());}
         d=sales.dispatch(request.getDispatchId());
         if(d.getPackageCount()==null||d.getPackageCount()<=0)throw new IllegalArgumentException("本笔出库当前有效数量为零，不能安排运输。");
-        if(transport.byDispatch(d.getId())!=null)throw new IllegalArgumentException("本笔出库已有运输单，请查看原记录。");
+        if(transport.byDispatch(d.getId())!=null)throw new IllegalArgumentException("本笔出库已有运输档案，请从原档案查看或办理安排撤销与替代。");
         Shipment s=new Shipment();s.setDispatchId(d.getId());s.setShipmentCode(request.getShipmentCode());s.setCarrier(request.getCarrier().trim());s.setTrackingReference(text(request.getTrackingReference()));
         s.setDriverName(request.getDriverName().trim());s.setDriverContact(text(request.getDriverContact()));s.setRecipient(order.getCustomerName());s.setDeliveryAddress(order.getDeliveryAddress());s.setNotes(text(request.getNotes()));
         s.setRecordedBy(AccessContext.require().getId());s.setRecorderName(AccessContext.require().getDisplayName());s.setRequestKey(request.getRequestKey());s.setRequestHash(hash);
-        transport.insert(s);audit.record("TRANSPORT_CREATE","TRANSPORT",s.getId(),s.getShipmentCode());return transport.shipment(s.getId());
+        s.setPackageCount(d.getPackageCount());s.setPackageUnit(d.getPackageUnit());s.setCorrectionRecordedAt(d.getLastCorrectionAt());
+        transport.insert(s);plans.origin(s);
+        try{plans.claimCode(s.getShipmentCode(),s.getId());}catch(org.springframework.dao.DuplicateKeyException e){throw new IllegalArgumentException("运输编码已被当前或历史安排使用，请更换编码。");}
+        audit.record("TRANSPORT_CREATE","TRANSPORT",s.getId(),s.getShipmentCode());return transport.shipment(s.getId());
     }
 
     @Transactional(isolation=Isolation.READ_COMMITTED)
@@ -57,7 +61,7 @@ public class TransportService {
         Shipment s=transport.shipment(id);
         String hash=hash(id,request);Event previous=transport.eventByRequest(request.getRequestKey());
         if(previous!=null){same(hash,previous.getRequestHash());return previous;}
-        if(List.of("DELIVERED","DELIVERY_ISSUE").contains(s.getStatus()))throw new IllegalArgumentException("本运输单已登记收货结果，不能继续追加运输事实。");
+        if(List.of("DELIVERED","DELIVERY_ISSUE","CANCELLED").contains(s.getStatus()))throw new IllegalArgumentException("本运输单已完成收货或已撤销，不能继续追加运输事实。");
         String kind=request.getKind();
         if("PLANNED".equals(s.getStatus()) ? !"DEPART".equals(kind) : "DEPART".equals(kind)) throw new IllegalArgumentException("待发运须先登记实际发运；同单只能登记一次发运。");
         Event latest=transport.latest(id);LocalDateTime floor=latest==null?s.getDispatchedAt():latest.getOccurredAt();

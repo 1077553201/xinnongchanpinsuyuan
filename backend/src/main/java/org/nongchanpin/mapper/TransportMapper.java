@@ -6,16 +6,17 @@ import org.nongchanpin.model.entity.TransportModels.*;
 
 @Mapper
 public interface TransportMapper {
-    @Select("SELECT s.id,CONCAT_WS(' · ',s.shipment_code,l.product_name,s.status,CONCAT(m.effective_count,m.package_unit)) AS label FROM transport_shipment s JOIN sales_dispatch d ON d.id=s.dispatch_id JOIN sales_order_line l ON l.id=d.line_id JOIN sales_order o ON o.id=l.order_id JOIN inventory_effective_movement m ON m.id=d.movement_id WHERE s.status IN ('PLANNED','IN_TRANSIT') AND (#{org} IS NULL OR o.organization_id=#{org}) AND (#{search}='' OR LOCATE(#{search},CONCAT_WS(' ',s.shipment_code,l.product_name))>0) ORDER BY s.id DESC LIMIT 50")
+    @Select("SELECT s.id,CONCAT_WS(' · ',s.shipment_code,l.product_name,s.status,CONCAT(m.effective_count,m.package_unit)) AS label FROM transport_current_plan s JOIN sales_dispatch d ON d.id=s.dispatch_id JOIN sales_order_line l ON l.id=d.line_id JOIN sales_order o ON o.id=l.order_id JOIN inventory_effective_movement m ON m.id=d.movement_id WHERE s.status IN ('PLANNED','IN_TRANSIT') AND (#{org} IS NULL OR o.organization_id=#{org}) AND (#{search}='' OR LOCATE(#{search},CONCAT_WS(' ',s.shipment_code,l.product_name))>0) ORDER BY s.id DESC LIMIT 50")
     List<java.util.Map<String,Object>> agentShipments(@Param("org")Long org,@Param("search")String search);
-    String VIEW="SELECT s.*,o.organization_id,o.id AS order_id,o.order_code,l.packing_id,l.warehouse_id,l.product_name,l.variety,l.packing_code,l.warehouse_name,m.package_unit,m.effective_count AS package_count,m.movement_code,m.occurred_at AS dispatched_at,m.last_correction_at AS correction_recorded_at FROM transport_shipment s JOIN sales_dispatch d ON d.id=s.dispatch_id JOIN sales_order_line l ON l.id=d.line_id JOIN sales_order o ON o.id=l.order_id JOIN inventory_effective_movement m ON m.id=d.movement_id ";
-    String FILTER=" WHERE (#{org} IS NULL OR o.organization_id=#{org}) AND (#{status}='' OR s.status=#{status}) AND (#{search}='' OR LOCATE(#{search},CONCAT_WS(' ',s.shipment_code,o.order_code,s.recipient,s.carrier,s.tracking_reference))>0) ";
-    @Select("SELECT COUNT(*) FROM transport_shipment s JOIN sales_dispatch d ON d.id=s.dispatch_id JOIN sales_order_line l ON l.id=d.line_id JOIN sales_order o ON o.id=l.order_id"+FILTER)
+    String VIEW="SELECT s.*,o.organization_id,o.id AS order_id,o.order_code,l.packing_id,l.warehouse_id,l.product_name,l.variety,l.packing_code,l.warehouse_name,m.movement_code,m.occurred_at AS dispatched_at FROM transport_current_plan s JOIN sales_dispatch d ON d.id=s.dispatch_id JOIN sales_order_line l ON l.id=d.line_id JOIN sales_order o ON o.id=l.order_id JOIN inventory_effective_movement m ON m.id=d.movement_id ";
+    String FILTER=" WHERE (#{org} IS NULL OR o.organization_id=#{org}) AND (#{status}='' OR s.status=#{status}) AND (#{search}='' OR LOCATE(#{search},CONCAT_WS(' ',s.shipment_code,o.order_code,s.recipient,s.carrier,s.tracking_reference))>0 OR EXISTS (SELECT 1 FROM transport_code_registry r WHERE r.shipment_id=s.id AND LOCATE(#{search},r.shipment_code)>0)) ";
+    @Select("SELECT COUNT(*) FROM transport_current_plan s JOIN sales_dispatch d ON d.id=s.dispatch_id JOIN sales_order_line l ON l.id=d.line_id JOIN sales_order o ON o.id=l.order_id"+FILTER)
     long count(@Param("org") Long org,@Param("search") String search,@Param("status") String status);
     @Select(VIEW+FILTER+" ORDER BY s.id DESC LIMIT #{size} OFFSET #{offset}")
     List<Shipment> list(@Param("org") Long org,@Param("search") String search,@Param("status") String status,@Param("offset") long offset,@Param("size") int size);
     @Select(VIEW+"WHERE s.id=#{id}") Shipment shipment(Long id);
-    @Select("SELECT o.organization_id FROM transport_shipment s JOIN sales_dispatch d ON d.id=s.dispatch_id JOIN sales_order_line l ON l.id=d.line_id JOIN sales_order o ON o.id=l.order_id WHERE s.id=#{id}") Long organization(Long id);
+    @Select("SELECT o.organization_id FROM transport_current_plan s JOIN sales_dispatch d ON d.id=s.dispatch_id JOIN sales_order_line l ON l.id=d.line_id JOIN sales_order o ON o.id=l.order_id WHERE s.id=#{id}") Long organization(Long id);
+    @Options(flushCache=Options.FlushCachePolicy.TRUE)
     @Select("SELECT id FROM transport_shipment WHERE id=#{id} FOR UPDATE") Long lock(Long id);
     @Select("SELECT * FROM transport_shipment WHERE request_key=#{key}") Shipment byRequest(String key);
     @Select("SELECT * FROM transport_shipment WHERE dispatch_id=#{id}") Shipment byDispatch(Long id);

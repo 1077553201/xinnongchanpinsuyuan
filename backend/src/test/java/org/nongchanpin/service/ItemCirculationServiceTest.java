@@ -33,6 +33,7 @@ class ItemCirculationServiceTest {
         when(items.receive(anyLong(),anyLong(),anyLong(),anyString(),anyString(),anyLong())).thenReturn(1);
     }
     @AfterEach void clear(){AccessContext.clear();}
+    @Test void cancelledTransportArrangementCannotAllocateNewCodes(){shipment.setStatus("CANCELLED");assertThrows(IllegalArgumentException.class,()->service.link(9L,link()));verify(items,never()).insertOperation(any());}
     @Test void codeCapacityIsReadAgainAfterPackagingLock(){SalesDispatchEntity previous=sales.dispatch(9L),corrected=new SalesDispatchEntity();corrected.setId(9L);corrected.setLineId(10L);corrected.setPackageCount(0);when(sales.dispatch(9L)).thenReturn(previous,corrected);assertThrows(IllegalArgumentException.class,()->service.link(9L,link()));verify(items,never()).insertOperation(any());}
     private ItemCirculationRequests.Link link(){ItemCirculationRequests.Link r=new ItemCirculationRequests.Link();r.setItemIds(List.of(30L));r.setRequestKey("00000000-0000-4000-8000-000000000001");return r;}
     private ItemCirculationRequests.Receipt receive(){ItemCirculationRequests.Receipt r=new ItemCirculationRequests.Receipt();r.setItemIds(List.of(30L));r.setOutcome("ACCEPTED");r.setRequestKey("00000000-0000-4000-8000-000000000002");return r;}

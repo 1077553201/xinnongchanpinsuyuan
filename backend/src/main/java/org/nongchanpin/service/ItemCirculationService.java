@@ -53,6 +53,7 @@ public class ItemCirculationService {
         dispatch=require(dispatchId);
         String hash=hash(dispatchId,"LINK",request.getItemIds(),null);
         if(replay(dispatchId,request.getRequestKey(),hash))return Map.of("savedCount",request.getItemIds().size());
+        Shipment arrangement=transport.byDispatch(dispatchId);if(arrangement!=null&&"CANCELLED".equals(arrangement.getStatus()))throw new IllegalArgumentException("运输安排已撤销，请先确认替代安排，再关联包装码。");
         List<Long> selected=validateIds(request.getItemIds());
         if(items.linkedCount(dispatchId)+selected.size()>dispatch.getPackageCount())throw new IllegalArgumentException("所选包装码超过本笔实际销售出库尚未关联的件数。");
         for(Long id:selected){Item item=items.item(line.getPackingId(),id);if(item==null)throw new IllegalArgumentException("所选码不属于本笔出库的包装来源。");if(item.getDispatchId()!=null)throw new IllegalArgumentException("所选码已关联出库，请刷新核对；不能重复发出同一件包装。");}
