@@ -39,3 +39,5 @@
 - 浏览器验证两种视图入口、翻页、搜索、切仓、清空历史、带仓库上下文的出库表单、只读访问和两套主题；320、390、768、1024、1920px 无整页横向溢出，运行异常为零。
 
 测试标识为 `QA-WH-STOCK-*`，不代表实际经营货物；证据位于忽略目录 `.workbuddy/preview/warehouse-stock/` 与 `.workbuddy/preview/warehouse-stock-browser/`。设备反馈继续保留在待优化清单，库存本身的业务边界仍见 [库存台账阶段记录](INVENTORY_LEDGER_STAGE.md)。
+
+2026-10-26 第二十批：普通入出库也按最新有效调整数量汇总，原单保留；只有同仓最近且无销售履约依赖的流水可调整，详见 [普通入出库更正说明](ORDINARY_MOVEMENT_CORRECTION_STAGE.md)。

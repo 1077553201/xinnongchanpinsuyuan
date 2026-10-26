@@ -44,6 +44,12 @@ public class SalesService {
         SalesOrderEntity existing=sales.orderByRequest(request.getRequestKey());
         if (existing!=null) { same(hash,existing.getRequestHash()); return existing; }
         if (production.activeOrganization(request.getOrganizationId())!=1 || request.getOrderedOn().isAfter(LocalDate.now())) throw new IllegalArgumentException("请选择有效机构，实际下单日期不能晚于今天。");
+        // Lock in a stable order so a new fulfillment dependency cannot race a plain stock correction.
+        for(Long packingId:request.getLines().stream().map(SalesRequests.Line::getPackingId).distinct().sorted().collect(java.util.stream.Collectors.toList())) {
+            InventorySource candidate=inventory.source(packingId);
+            if(candidate==null||!request.getOrganizationId().equals(candidate.getOrganizationId()))throw new IllegalArgumentException("订单包装来源不属于本机构。");
+            inventory.lockPacking(packingId);
+        }
         List<SalesLineEntity> lines=new ArrayList<>(); Set<String> pairs=new HashSet<>(); Map<Long,Long> quantities=new HashMap<>();
         BigDecimal total=new BigDecimal("0.00");
         for (SalesRequests.Line input:request.getLines()) {

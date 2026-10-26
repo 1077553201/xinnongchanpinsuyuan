@@ -58,4 +58,10 @@ class SalesServiceTest {
     @Test void cancellationBeforeDispatchDoesNotInventInventory(){GrowingRequests.Reason r=new GrowingRequests.Reason();r.setReason("客户取消");service.close(7L,r);assertEquals("CANCELLED",order.getStatus());service.close(7L,r);verify(mapper,times(1)).close(any());verifyNoInteractions(stock);}
     @Test void fulfilledOrderCannotBeCancelledAsReturn(){order.setStatus("FULFILLED");GrowingRequests.Reason r=new GrowingRequests.Reason();r.setReason("不应退库");assertThrows(IllegalArgumentException.class,()->service.close(7L,r));}
     @Test void listChecksPaginationAndScope(){service.list("", "",1,20);verify(mapper).count(3L,"","");assertThrows(IllegalArgumentException.class,()->service.list("","invalid",1,20));assertThrows(IllegalArgumentException.class,()->service.list("","",0,20));}
+    @Test void newOrderLocksPackagingInAscendingOrderBeforeCreatingDependency(){
+        SalesRequests.Create request=create();SalesRequests.Line extra=new SalesRequests.Line();extra.setPackingId(6L);extra.setWarehouseId(11L);extra.setPackageCount(1);extra.setUnitPrice(new BigDecimal("0.10"));request.getLines().add(0,extra);
+        InventorySource other=new InventorySource();other.setId(6L);other.setOrganizationId(3L);other.setPackageCount(10);other.setNetWeightKg(BigDecimal.ONE);when(inventory.source(6L)).thenReturn(other);
+        doAnswer(c->{SalesOrderEntity row=c.getArgument(0);row.setId(7L);return 1;}).when(mapper).insertOrder(any());service.create(request);
+        org.mockito.InOrder sequence=inOrder(inventory,mapper);sequence.verify(inventory).lockPacking(5L);sequence.verify(inventory).lockPacking(6L);sequence.verify(mapper).insertOrder(any());verifyNoInteractions(stock);
+    }
 }

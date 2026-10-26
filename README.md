@@ -123,3 +123,5 @@ mvn test
 第十八批迁移 `database/migrations/018_rejection_handling.sql` 新增逐件拒收处置单与事件两张表，可运行 `scripts/ApplyRejectionHandlingSchema.java`。先完成此前迁移；只处理已明确逐件拒收的完整包装，不把隔离收货写成普通入库，不自动退款或发链交易。入口为“退回与隔离”和出库拒收包装码，详见 [拒收处置说明](docs/REJECTION_HANDLING_STAGE.md)。
 
 第十九批迁移 `database/migrations/019_inventory_loss_correction.sql` 新增损耗调整表及当前有效库存视图，可运行 `scripts/ApplyLossCorrectionSchema.java`。部署前完成迁移；损耗单提供影响预览和逐版调整，原流水保留，库存按最新有效损耗统一计算。已有调整后不能单独回退为旧库存查询。详见 [损耗数量更正说明](docs/INVENTORY_LOSS_CORRECTION_STAGE.md)。
+
+第二十批迁移 `database/migrations/020_inventory_quantity_correction.sql` 新增普通入出库调整表并升级当前库存视图，可运行 `scripts/ApplyMovementCorrectionSchema.java`。只开放同仓最近且无销售履约依赖的普通流水；其余提供阻止预览。部署前迁移，之后不得单独重跑第十九批覆盖视图或回退旧库存查询；原流水、损耗调整和证据保留，无需重部署合约。详见 [普通入出库更正说明](docs/ORDINARY_MOVEMENT_CORRECTION_STAGE.md)。
