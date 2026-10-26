@@ -4,6 +4,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import GlassPanel from '@/components/GlassPanel.vue'
 import ResourceState from '@/components/ResourceState.vue'
 import InventoryViewTabs from '@/components/InventoryViewTabs.vue'
+import QuarantineStockPanel from '@/components/QuarantineStockPanel.vue'
 import { useAsyncResource } from '@/composables/useAsyncResource'
 import { useAuth } from '@/composables/useAuth'
 import { listWarehouses, warehouseStock } from '@/api/inventory'
@@ -30,14 +31,15 @@ onMounted(async () => { await warehouses.load(); await load() })
   <div class="management stack">
     <InventoryViewTabs />
     <GlassPanel padded="large" class="stack">
-      <div class="section-head"><div><p class="eyebrow">走进一个仓库，查看所有在库货物</p><h2 class="display intro-title">本仓有什么、还剩多少，一起看清。</h2></div><button class="action-button" :disabled="!warehouseId || stock.loading.value" @click="load">刷新本仓库存</button></div>
-      <p class="muted">跨地块、跨种植周期查看本仓货物。默认仅显示仍有余量的包装批次，件数按包装单位分别汇总。</p>
+      <div class="section-head"><div><p class="eyebrow">查看本仓普通库存与隔离保管</p><h2 class="display intro-title">本仓有什么、还剩多少，一起看清。</h2></div><button class="action-button" :disabled="!warehouseId || stock.loading.value" @click="load">刷新本仓库存</button></div>
+      <p class="muted">跨地块、跨种植周期查看本仓普通库存；拒收退回的隔离货物在独立面板查看，不计入以下余量。默认仅显示仍有余量的包装批次，件数按包装单位分别汇总。</p>
       <ResourceState :loading="warehouses.loading.value" :error="warehouses.error.value" :empty="!warehouses.data.value?.length" empty-text="尚无仓库，请到按种植来源查看中登记仓库。" @retry="warehouses.load">
         <label class="form-field">查看仓库<select v-model="selected" class="field-input" @change="choose"><option value="">选择要查看的仓库</option><option v-for="item in warehouses.data.value" :key="item.id" :value="String(item.id)">{{ item.warehouseName }} · {{ item.warehouseCode }}</option></select></label>
         <div v-if="!warehouseId" class="warehouse-grid"><article v-for="item in warehouses.data.value" :key="item.id" class="storage-card"><h3>{{ item.warehouseName }}</h3><p class="muted">{{ item.location }}</p><p class="mono">{{ item.warehouseCode }}</p><RouterLink :to="{ name: 'admin-warehouse-stock', params: { warehouseId: item.id } }" class="text-button">查看本仓货物 →</RouterLink></article></div>
       </ResourceState>
     </GlassPanel>
     <template v-if="warehouseId">
+      <QuarantineStockPanel :warehouse-id="warehouseId" />
       <GlassPanel padded="large" class="stack">
         <ResourceState :loading="stock.loading.value" :error="stock.error.value" @retry="load"><template v-if="stock.data.value">
           <div class="section-head"><div><p class="eyebrow">{{ stock.data.value.warehouse.warehouseCode }}</p><h2 class="display">{{ stock.data.value.warehouse.warehouseName }}</h2></div><p class="muted">{{ stock.data.value.warehouse.location }}</p></div>

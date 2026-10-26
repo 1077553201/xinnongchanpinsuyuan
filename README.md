@@ -119,3 +119,5 @@ mvn test
 第十六批迁移 `database/migrations/016_packing_nfc.sql` 新增包装 NFC 操作历史表，可运行 `scripts/ApplyPackingNfcSchema.java`。先完成此前来源与生产证据迁移；保留既有标签和所有证据，无需重新部署合约。NDEF URL 的实物写入须通过外部工具，系统页面提供同一前端站点的 `/n/{uidHash}` 地址。
 
 第十七批迁移 `database/migrations/017_receipt_verification.sql` 为原交易增加回执核验时间及摘要，可运行 `scripts/ApplyReceiptVerificationSchema.java`，保留原哈希、提交信息和业务事实。核验标记保护已确认留档不被迟到回调覆盖；部署本版前升级，无需重新部署合约。
+
+第十八批迁移 `database/migrations/018_rejection_handling.sql` 新增逐件拒收处置单与事件两张表，可运行 `scripts/ApplyRejectionHandlingSchema.java`。先完成此前迁移；只处理已明确逐件拒收的完整包装，不把隔离收货写成普通入库，不自动退款或发链交易。入口为“退回与隔离”和出库拒收包装码，详见 [拒收处置说明](docs/REJECTION_HANDLING_STAGE.md)。

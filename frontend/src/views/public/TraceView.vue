@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { rejectionStatuses, rejectionKinds } from '@/utils/rejections'
 import { computed, onScopeDispose, ref, watch } from 'vue'
 import GlassPanel from '@/components/GlassPanel.vue'
 import ProductionEvidencePanel from '@/components/ProductionEvidencePanel.vue'
@@ -227,6 +228,12 @@ const aiAvailable = computed(() => trace.value?.ai?.available === true)
           <dl class="source-facts"><div><dt>本件销售出库</dt><dd>{{ formatDateTime(trace.circulation.dispatchedAt) }}</dd></div><div><dt>包装码关联留档</dt><dd>{{ formatDateTime(trace.circulation.linkedAt) }}</dd></div><div><dt>本件收货结果</dt><dd>{{ trace.circulation.receiptOutcome === 'ACCEPTED' ? '已逐件核对实收' : trace.circulation.receiptOutcome === 'REJECTED' ? '已逐件核对拒收' : '待逐件核对，不据运输单汇总推断' }}</dd></div><div v-if="trace.circulation.receiptRecordedAt"><dt>收货核对留档</dt><dd>{{ formatDateTime(trace.circulation.receiptRecordedAt) }}</dd></div></dl>
           <p v-if="trace.circulation.transportStatus === 'NOT_ARRANGED'" class="muted tiny">尚未安排本笔出库的运输。</p>
           <p v-else-if="trace.circulation.transportStatus === 'PLANNED'" class="muted tiny">已安排运输，尚未登记实际发运。</p>
+          <section v-if="trace.circulation.rejectionHandling" class="stack">
+            <h3>本件拒收后处置 · {{ rejectionStatuses[trace.circulation.rejectionHandling.status] }}</h3>
+            <p class="muted tiny">以下为本件业务留档。是否已纳入链上存证，以本页当前流转核验结果为准；不代表退款或重新可售。</p>
+            <p class="hash-code mono">处置版本 {{ trace.circulation.rejectionHandling.revision }} · {{ trace.circulation.rejectionHandling.handlingHash }}</p>
+            <ol class="circulation-events"><li v-for="event in trace.circulation.rejectionHandling.events" :key="event.revision">#{{ event.revision }} {{ rejectionKinds[event.kind] }} · {{ formatDateTime(event.occurredAt) }}<template v-if="event.targetRevision !== undefined"> · 针对 #{{ event.targetRevision }}</template></li></ol>
+          </section>
           <ol class="circulation-events"><li v-for="(event,index) in trace.circulation.events" :key="index">{{ ({ DEPART: '实际发运', UPDATE: '运输进展留档', EXCEPTION: '运输异常留档', RECEIVE: '收货结果留档' } as Record<string,string>)[event.kind] || '运输记录' }} · {{ formatDateTime(event.occurredAt) }}</li></ol>
           <p v-if="trace.circulation.eventsTruncated" class="muted tiny">仅展示最近 200 条运输记录。</p>
           <p class="muted tiny">以上由经营方后台核对留档，尚非消费者身份核验或外部物流认证。</p>

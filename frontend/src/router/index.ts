@@ -62,6 +62,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '库存台账', eyebrow: 'Stock & movements' },
       },
       {
+        path: 'rejections',
+        name: 'admin-rejections',
+        component: () => import('@/views/admin/RejectionsView.vue'),
+        meta: { title: '退回与隔离', eyebrow: 'Returns & quarantine' },
+      },
+      {
         path: 'transport',
         name: 'admin-transport',
         component: () => import('@/views/admin/TransportView.vue'),
@@ -153,7 +159,7 @@ router.beforeEach(async to => {
   try {
     if (!await auth.restore()) return { path: '/login', query: { redirect: to.fullPath } }
   } catch { return { path: '/login', query: { unavailable: '1', redirect: to.fullPath } } }
-  if (!auth.isAdmin.value && to.name !== 'admin-warehouse-stock' && !['/admin', '/admin/production', '/admin/farming', '/admin/harvest', '/admin/inventory', '/admin/sales', '/admin/transport', '/admin/monitoring', '/admin/accounts', '/admin/ai', '/admin/evidence-reconciliation'].includes(to.path)) return '/admin/production'
+  if (!auth.isAdmin.value && to.name !== 'admin-warehouse-stock' && !['/admin', '/admin/production', '/admin/farming', '/admin/harvest', '/admin/inventory', '/admin/sales', '/admin/transport', '/admin/rejections', '/admin/monitoring', '/admin/accounts', '/admin/ai', '/admin/evidence-reconciliation'].includes(to.path)) return '/admin/production'
   return true
 })
 export default router

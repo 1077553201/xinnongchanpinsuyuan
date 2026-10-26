@@ -24,6 +24,7 @@ public class ItemCirculationService {
     private final TransportMapper transport;
     private final PayloadService payloads;
     private final AuditService audit;
+    private final RejectionHandlingService rejections;
 
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public Map<String,Object> detail(Long dispatchId,String search,String mode,int page) {
@@ -99,7 +100,7 @@ public class ItemCirculationService {
             if("RECEIVE".equals(e.getKind()) && link.getReceiptOutcome()==null)continue;
             events.add(Map.of("kind",e.getKind(),"occurredAt",e.getOccurredAt()));
         }
-        result.put("events",events);return result;
+        result.put("events",events);Map<String,Object> handling=rejections.publicView(itemId);if(handling!=null)result.put("rejectionHandling",handling);return result;
     }
 
     private SalesDispatchEntity require(Long id){SalesDispatchEntity dispatch=sales.dispatch(id);if(dispatch==null)throw new IllegalArgumentException("销售出库记录不存在。");SalesOrderEntity order=sales.order(sales.lineOrderId(dispatch.getLineId()));AccessContext.checkOrganization(order.getOrganizationId());return dispatch;}

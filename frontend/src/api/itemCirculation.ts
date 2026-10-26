@@ -9,6 +9,7 @@ export interface DispatchItems {
   rows: CirculationItem[]; total: number; page: number; pageSize: number
 }
 export interface PublicCirculation {
+  rejectionHandling?: { status: string; revision: number; handlingHash: string; events: { kind: string; occurredAt: string; revision: number; targetRevision?: number }[] }
   chainStatus: string; dispatchedAt: string; linkedAt: string; receiptOutcome?: ReceiptOutcome; receiptRecordedAt?: string
   transportStatus: string; eventsTruncated: boolean; events: { kind: string; occurredAt: string }[]
 }

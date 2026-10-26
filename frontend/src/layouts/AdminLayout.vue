@@ -61,6 +61,7 @@ const allNavItems = [
   { to: '/admin/inventory', label: '库存台账' },
   { to: '/admin/sales', label: '销售订单' },
   { to: '/admin/transport', label: '运输与交付' },
+  { to: '/admin/rejections', label: '退回与隔离' },
   { to: '/admin/monitoring', label: '监测与设备绑定' },
   { to: '/admin/products', label: '产品与批次' },
   { to: '/admin/items', label: '单品码' },
@@ -71,7 +72,7 @@ const allNavItems = [
   { to: '/admin/ai', label: 'AI 助手' },
   { to: '/admin/accounts', label: '账号与权限' },
 ]
-const navItems = computed(() => allNavItems.filter(item => auth.isAdmin.value || ['/admin', '/admin/production', '/admin/farming', '/admin/harvest', '/admin/inventory', '/admin/sales', '/admin/transport', '/admin/monitoring', '/admin/ai', '/admin/accounts', '/admin/evidence-reconciliation'].includes(item.to)))
+const navItems = computed(() => allNavItems.filter(item => auth.isAdmin.value || ['/admin', '/admin/production', '/admin/farming', '/admin/harvest', '/admin/inventory', '/admin/sales', '/admin/transport', '/admin/rejections', '/admin/monitoring', '/admin/ai', '/admin/accounts', '/admin/evidence-reconciliation'].includes(item.to)))
 const title = computed(() => (route.meta.title as string | undefined) ?? '')
 const eyebrow = computed(() => (route.meta.eyebrow as string | undefined) ?? '')
 </script>

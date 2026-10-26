@@ -17,7 +17,7 @@ class ItemCirculationServiceTest {
     private final SalesMapper sales=mock(SalesMapper.class);
     private final PackingTraceMapper packing=mock(PackingTraceMapper.class);
     private final TransportMapper transport=mock(TransportMapper.class);
-    private final ItemCirculationService service=new ItemCirculationService(items,sales,packing,transport,new PayloadService(),mock(AuditService.class));
+    private final ItemCirculationService service=new ItemCirculationService(items,sales,packing,transport,new PayloadService(),mock(AuditService.class),mock(RejectionHandlingService.class));
     private final Actor actor=new Actor();
     private final Item item=new Item();
     private final Shipment shipment=new Shipment();
