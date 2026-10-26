@@ -1146,13 +1146,7 @@ CREATE TABLE IF NOT EXISTS inventory_quantity_correction (
     CONSTRAINT ck_quantity_correction_revision CHECK (revision BETWEEN 1 AND 100)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE OR REPLACE VIEW inventory_effective_movement AS
-SELECT m.*,
-    CASE WHEN m.kind='LOSS' THEN COALESCE((SELECT c.corrected_count FROM inventory_loss_correction c WHERE c.movement_id=m.id ORDER BY c.revision DESC LIMIT 1),m.package_count)
-         ELSE COALESCE((SELECT c.corrected_count FROM inventory_quantity_correction c WHERE c.movement_id=m.id ORDER BY c.revision DESC LIMIT 1),m.package_count) END AS effective_count,
-    CASE WHEN m.kind='LOSS' THEN (SELECT MAX(c.recorded_at) FROM inventory_loss_correction c WHERE c.movement_id=m.id)
-         ELSE (SELECT MAX(c.recorded_at) FROM inventory_quantity_correction c WHERE c.movement_id=m.id) END AS last_correction_at
-FROM inventory_movement m;
+
 
 CREATE TABLE IF NOT EXISTS sales_order_replacement (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
@@ -1172,3 +1166,39 @@ CREATE TABLE IF NOT EXISTS sales_order_replacement (
     CONSTRAINT fk_sales_replacement_org FOREIGN KEY (organization_id) REFERENCES sys_organization(id),
     CONSTRAINT ck_sales_replacement_distinct CHECK (original_order_id<>replacement_order_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS sales_dispatch_correction (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    movement_id BIGINT NOT NULL,
+    revision INT NOT NULL,
+    previous_count INT NOT NULL,
+    corrected_count INT NOT NULL,
+    balance_before BIGINT NOT NULL,
+    balance_after BIGINT NOT NULL,
+    verified_at DATETIME NOT NULL,
+    performer_name VARCHAR(128) NOT NULL,
+    reason VARCHAR(1000) NOT NULL,
+    reference VARCHAR(128) NOT NULL DEFAULT '',
+    original_hash VARCHAR(64) NOT NULL,
+    previous_hash VARCHAR(64) NOT NULL,
+    impact_json MEDIUMTEXT NOT NULL,
+    impact_hash VARCHAR(64) NOT NULL,
+    payload_json MEDIUMTEXT NOT NULL,
+    correction_hash VARCHAR(64) NOT NULL,
+    recorded_by BIGINT NOT NULL,
+    recorded_at DATETIME NOT NULL,
+    request_key VARCHAR(36) NOT NULL UNIQUE,
+    request_hash VARCHAR(64) NOT NULL,
+    UNIQUE KEY uk_dispatch_correction_revision (movement_id,revision),
+    CONSTRAINT fk_dispatch_correction_movement FOREIGN KEY (movement_id) REFERENCES sales_dispatch(movement_id),
+    CONSTRAINT ck_dispatch_correction_count CHECK (previous_count>=0 AND corrected_count>=0 AND previous_count<>corrected_count AND balance_before>=0 AND balance_after>=0),
+    CONSTRAINT ck_dispatch_correction_revision CHECK (revision BETWEEN 1 AND 100)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE OR REPLACE VIEW inventory_effective_movement AS
+SELECT m.*,
+    CASE WHEN m.kind='LOSS' THEN COALESCE((SELECT c.corrected_count FROM inventory_loss_correction c WHERE c.movement_id=m.id ORDER BY c.revision DESC LIMIT 1),m.package_count)
+         ELSE COALESCE((SELECT c.corrected_count FROM sales_dispatch_correction c WHERE c.movement_id=m.id ORDER BY c.revision DESC LIMIT 1),(SELECT c.corrected_count FROM inventory_quantity_correction c WHERE c.movement_id=m.id ORDER BY c.revision DESC LIMIT 1),m.package_count) END AS effective_count,
+    CASE WHEN m.kind='LOSS' THEN (SELECT MAX(c.recorded_at) FROM inventory_loss_correction c WHERE c.movement_id=m.id)
+         ELSE COALESCE((SELECT MAX(c.recorded_at) FROM sales_dispatch_correction c WHERE c.movement_id=m.id),(SELECT MAX(c.recorded_at) FROM inventory_quantity_correction c WHERE c.movement_id=m.id)) END AS last_correction_at
+FROM inventory_movement m;

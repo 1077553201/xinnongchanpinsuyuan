@@ -12,6 +12,7 @@ export interface SalesLine {
   lineAmount: string; dispatchedCount: number; cycleId: number
 }
 export interface SalesDispatch {
+  originalPackageCount?: number; lastCorrectionAt?: string
   shipmentId?: number
   id: number; lineId: number; movementId: number; movementCode: string; packageCount: number; packageUnit: string
   weightKg: number; occurredAt: string; performerName: string; recorderName: string; recordedAt: string; reason: string; reference?: string

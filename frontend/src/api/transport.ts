@@ -7,7 +7,7 @@ export interface Shipment {
   shipmentCode: string; carrier: string; trackingReference: string; driverName: string; driverContact: string
   recipient: string; deliveryAddress: string; notes: string; status: keyof typeof TRANSPORT_STATUS
   productName: string; variety: string; packingCode: string; warehouseName: string; packageUnit: string; packageCount: number
-  movementCode: string; dispatchedAt: string; recorderName: string; recordedAt: string
+  movementCode: string; dispatchedAt: string; correctionRecordedAt?: string; recorderName: string; recordedAt: string
 }
 export interface TransportEvent {
   id: number; kind: keyof typeof TRANSPORT_EVENTS; occurredAt: string; location: string; performerName: string; description: string

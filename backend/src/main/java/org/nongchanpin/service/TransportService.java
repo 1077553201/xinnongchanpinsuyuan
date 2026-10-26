@@ -41,6 +41,8 @@ public class TransportService {
         sales.lockOrder(orderId);
         String hash=hash(request.getDispatchId(),request); Shipment previous=transport.byRequest(request.getRequestKey());
         if(previous!=null){same(hash,previous.getRequestHash());return transport.shipment(previous.getId());}
+        d=sales.dispatch(request.getDispatchId());
+        if(d.getPackageCount()==null||d.getPackageCount()<=0)throw new IllegalArgumentException("本笔出库当前有效数量为零，不能安排运输。");
         if(transport.byDispatch(d.getId())!=null)throw new IllegalArgumentException("本笔出库已有运输单，请查看原记录。");
         Shipment s=new Shipment();s.setDispatchId(d.getId());s.setShipmentCode(request.getShipmentCode());s.setCarrier(request.getCarrier().trim());s.setTrackingReference(text(request.getTrackingReference()));
         s.setDriverName(request.getDriverName().trim());s.setDriverContact(text(request.getDriverContact()));s.setRecipient(order.getCustomerName());s.setDeliveryAddress(order.getDeliveryAddress());s.setNotes(text(request.getNotes()));
@@ -59,7 +61,8 @@ public class TransportService {
         String kind=request.getKind();
         if("PLANNED".equals(s.getStatus()) ? !"DEPART".equals(kind) : "DEPART".equals(kind)) throw new IllegalArgumentException("待发运须先登记实际发运；同单只能登记一次发运。");
         Event latest=transport.latest(id);LocalDateTime floor=latest==null?s.getDispatchedAt():latest.getOccurredAt();
-        if(request.getOccurredAt().isBefore(floor) || request.getOccurredAt().isAfter(LocalDateTime.now()))throw new IllegalArgumentException("实际时间不能早于出库或上一条运输事实，也不能晚于当前时间。");
+        if(s.getCorrectionRecordedAt()!=null&&s.getCorrectionRecordedAt().isAfter(floor))floor=s.getCorrectionRecordedAt();
+        if(request.getOccurredAt().isBefore(floor) || request.getOccurredAt().isAfter(LocalDateTime.now()))throw new IllegalArgumentException("实际时间不能早于出库、最近数量更正或上一条运输事实，也不能晚于当前时间。");
         if("RECEIVE".equals(kind)) {
             if(request.getAcceptedCount()==null || request.getRejectedCount()==null || (long)request.getAcceptedCount()+request.getRejectedCount()!=s.getPackageCount()) throw new IllegalArgumentException("请明确填写实收与拒收件数，合计须等于本笔出库件数。");
         } else if(request.getAcceptedCount()!=null || request.getRejectedCount()!=null)throw new IllegalArgumentException("只有收货结果可以填写实收、拒收件数。");

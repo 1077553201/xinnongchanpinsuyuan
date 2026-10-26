@@ -6,6 +6,7 @@ export interface LossCorrection {
 }
 export interface LossHistory { original: InventoryMovement; history: LossCorrection[]; effectiveCount: number }
 export interface LossImpact {
+  dispatchId?: number; lineId?: number; orderId?: number; orderCode?: string; orderStatusBefore?: string; orderStatusAfter?: string; orderedCount?: number; dispatchedBefore?: number; dispatchedAfter?: number; remainingBefore?: number; remainingAfter?: number
   kind?: string; packingCount?: number; receivedBefore?: number; receivedAfter?: number; availableBefore?: number; availableAfter?: number; blockers?: string[]
   revision: number; previousCount: number; correctedCount: number; stockDelta: number; balanceBefore: number; balanceAfter: number
   warehouseId: number; packageUnit: string; netWeightKg: number; positions: InventoryPosition[]
@@ -15,7 +16,7 @@ export interface LossImpact {
 }
 export interface LossPreview { original: InventoryMovement; impact: LossImpact; impactHash: string; canConfirm?: boolean }
 export interface ConfirmLossCorrection { correctedCount: number; verifiedAt: string; performerName: string; reason: string; reference: string; expectedImpactHash: string; requestKey: string }
-const correctionPath = (id: number, ordinary: boolean) => `/production/inventory/movements/${id}/${ordinary ? 'quantity-corrections' : 'corrections'}`
-export const lossHistory = (id: number, ordinary = false) => get<LossHistory>(correctionPath(id, ordinary))
-export const previewLossCorrection = (id: number, correctedCount: number, ordinary = false) => get<LossPreview>(`${correctionPath(id, ordinary)}/preview`, { correctedCount })
-export const confirmLossCorrection = (id: number, body: ConfirmLossCorrection, ordinary = false) => post<LossHistory>(correctionPath(id, ordinary), body)
+const correctionPath = (id: number, ordinary: boolean, sales: boolean) => `/production/inventory/movements/${id}/${sales ? 'dispatch-corrections' : ordinary ? 'quantity-corrections' : 'corrections'}`
+export const lossHistory = (id: number, ordinary = false, sales = false) => get<LossHistory>(correctionPath(id, ordinary, sales))
+export const previewLossCorrection = (id: number, correctedCount: number, ordinary = false, sales = false) => get<LossPreview>(`${correctionPath(id, ordinary, sales)}/preview`, { correctedCount })
+export const confirmLossCorrection = (id: number, body: ConfirmLossCorrection, ordinary = false, sales = false) => post<LossHistory>(correctionPath(id, ordinary, sales), body)

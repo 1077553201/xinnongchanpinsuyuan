@@ -20,6 +20,9 @@ public abstract class InventoryCorrectionService {
     protected List<LossCorrectionEntity> history(Long id){return corrections.history(id);}
     protected LossCorrectionEntity byKey(String key){return corrections.byKey(key);}
     protected void insert(LossCorrectionEntity row){corrections.insert(row);}
+    protected void lock(InventoryMovementEntity original){inventory.lockPacking(original.getPackingId());}
+    protected void afterInsert(InventoryMovementEntity original,LossCorrectionEntity correction){}
+    protected String auditAction(InventoryMovementEntity original){return "LOSS".equals(original.getKind())?"INVENTORY_LOSS_CORRECTION":"INVENTORY_QUANTITY_CORRECTION";}
     protected void allow(InventoryMovementEntity row){if(!"LOSS".equals(row.getKind())||row.getSalesOrderId()!=null)throw new IllegalArgumentException("本入口仅支持普通库存损耗单更正。");}
     protected long delta(InventoryMovementEntity original,int previous,int count){return (long)previous-count;}
     protected String schema(){return "INVENTORY_LOSS_CORRECTION_V1";}
@@ -42,7 +45,7 @@ public abstract class InventoryCorrectionService {
     public Map<String,Object> confirm(Long movementId,LossCorrectionRequest request){
         AccessContext.write();InventoryMovementEntity original=original(movementId);
         // All ordinary movements, sales dispatch and corrections serialize on this same packaging row.
-        inventory.lockPacking(original.getPackingId());
+        lock(original);
         if(request.getRequestKey()==null||!request.getRequestKey().matches("[A-Za-z0-9-]{36}"))throw new IllegalArgumentException("确认标识无效。");
         String requestHash=payloads.requestHash(Map.of("actor",AccessContext.require().getId(),"movementId",movementId,"request",request));
         LossCorrectionEntity replay=byKey(request.getRequestKey());
@@ -61,8 +64,8 @@ public abstract class InventoryCorrectionService {
         row.setVerifiedAt(verified.truncatedTo(ChronoUnit.SECONDS));row.setPerformerName(text(request.getPerformerName(),128,"核实人员"));row.setReason(text(request.getReason(),1000,"更正原因"));row.setReference(optional(request.getReference()));
         row.setOriginalHash(originalHash(original));row.setPreviousHash(previousHash(original,history));row.setImpactJson(payloads.canonicalJson(impact));row.setImpactHash((String)preview.get("impactHash"));
         row.setRecordedBy(AccessContext.require().getId());row.setRecordedAt(recordedAt);row.setRequestKey(request.getRequestKey());row.setRequestHash(requestHash);
-        row.setPayloadJson(payloads.canonicalJson(body(row)));row.setCorrectionHash(payloads.payloadHash(row.getPayloadJson()));insert(row);
-        audit.record("LOSS".equals(original.getKind())?"INVENTORY_LOSS_CORRECTION":"INVENTORY_QUANTITY_CORRECTION","INVENTORY_MOVEMENT",movementId,"调整 #"+row.getId()+" / "+row.getPreviousCount()+"→"+row.getCorrectedCount()+" / "+row.getCorrectionHash());return detail(movementId);
+        row.setPayloadJson(payloads.canonicalJson(body(row)));row.setCorrectionHash(payloads.payloadHash(row.getPayloadJson()));insert(row);afterInsert(original,row);
+        audit.record(auditAction(original),"INVENTORY_MOVEMENT",movementId,"调整 #"+row.getId()+" / "+row.getPreviousCount()+"→"+row.getCorrectedCount()+" / "+row.getCorrectionHash());return detail(movementId);
     }
 
     private Map<String,Object> candidate(InventoryMovementEntity original,int count){

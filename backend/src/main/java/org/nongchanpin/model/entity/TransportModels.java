@@ -11,7 +11,7 @@ public final class TransportModels {
         private String shipmentCode, carrier, trackingReference, driverName, driverContact, recipient, deliveryAddress, notes, status;
         private String orderCode, productName, variety, packingCode, warehouseName, packageUnit, movementCode;
         private Integer packageCount;
-        private LocalDateTime dispatchedAt, recordedAt;
+        private LocalDateTime dispatchedAt, recordedAt, correctionRecordedAt;
         private Long recordedBy;
         private String recorderName;
         @JsonIgnore private String requestKey;

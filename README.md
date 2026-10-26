@@ -127,3 +127,5 @@ mvn test
 第二十批迁移 `database/migrations/020_inventory_quantity_correction.sql` 新增普通入出库调整表并升级当前库存视图，可运行 `scripts/ApplyMovementCorrectionSchema.java`。只开放同仓最近且无销售履约依赖的普通流水；其余提供阻止预览。部署前迁移，之后不得单独重跑第十九批覆盖视图或回退旧库存查询；原流水、损耗调整和证据保留，无需重部署合约。详见 [普通入出库更正说明](docs/ORDINARY_MOVEMENT_CORRECTION_STAGE.md)。
 
 第二十一批迁移 `database/migrations/021_sales_order_replacement.sql` 新增销售订单替代关系表，可运行 `scripts/ApplySalesReplacementSchema.java`。未出库待履约订单支持预览、停止原单并建立替代单，原始资料和关系保留；已出库和交付依赖保持阻止，不退库、不退款、不发链交易。详见 [订单更正与替代说明](docs/SALES_ORDER_REPLACEMENT_STAGE.md)。
+
+第二十二批迁移 `database/migrations/022_sales_dispatch_correction.sql` 新增销售出库更正表并升级当前库存视图，可运行 `scripts/ApplyDispatchCorrectionSchema.java`。仅开放本仓最近、尚无运输安排/逐件绑定/冻结流转证据的销售出库，同步库存及订单剩余数量，原出库保留；后续运输按有效数量读取，归零禁止运输与绑码。部署前迁移，之后不可单独回退旧销售查询或覆盖旧库存视图。详见 [销售出库更正说明](docs/SALES_DISPATCH_CORRECTION_STAGE.md)。

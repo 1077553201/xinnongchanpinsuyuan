@@ -20,10 +20,12 @@ class TransportServiceTest {
         actor.setId(1L);actor.setOrganizationId(3L);actor.setRole("MANAGER");actor.setDisplayName("录入人");AccessContext.set(actor);
         shipment.setId(7L);shipment.setOrganizationId(3L);shipment.setPackageCount(3);shipment.setStatus("PLANNED");shipment.setDispatchedAt(LocalDateTime.now().minusHours(2));
         when(mapper.shipment(7L)).thenReturn(shipment);when(mapper.organization(7L)).thenReturn(3L);
-        SalesDispatchEntity dispatch=new SalesDispatchEntity();dispatch.setId(9L);dispatch.setLineId(10L);when(sales.dispatch(9L)).thenReturn(dispatch);when(sales.lineOrderId(10L)).thenReturn(11L);
+        SalesDispatchEntity dispatch=new SalesDispatchEntity();dispatch.setId(9L);dispatch.setLineId(10L);dispatch.setPackageCount(3);when(sales.dispatch(9L)).thenReturn(dispatch);when(sales.lineOrderId(10L)).thenReturn(11L);
         SalesOrderEntity order=new SalesOrderEntity();order.setId(11L);order.setOrganizationId(3L);order.setCustomerName("原收货方");order.setDeliveryAddress("原收货地址");order.setStatus("CLOSED");when(sales.order(11L)).thenReturn(order);
     }
     @AfterEach void clear(){AccessContext.clear();}
+    @Test void zeroQuantityObservedAfterOrderLockCannotCreateTransport(){SalesDispatchEntity positive=sales.dispatch(9L),zero=new SalesDispatchEntity();zero.setId(9L);zero.setLineId(10L);zero.setPackageCount(0);when(sales.dispatch(9L)).thenReturn(positive,zero);assertThrows(IllegalArgumentException.class,()->service.create(create()));verify(mapper,never()).insert(any());}
+    @Test void departureCannotPrecedeLatestQuantityCorrection(){shipment.setCorrectionRecordedAt(LocalDateTime.now().minusMinutes(30));assertThrows(IllegalArgumentException.class,()->service.record(7L,event("DEPART")));verify(mapper,never()).insertEvent(any());}
     private TransportRequests.Create create(){TransportRequests.Create r=new TransportRequests.Create();r.setDispatchId(9L);r.setShipmentCode("SHIP-TEST");r.setCarrier("承运方");r.setDriverName("联系人");r.setRequestKey("00000000-0000-4000-8000-000000000001");return r;}
     private TransportRequests.Event event(String kind){TransportRequests.Event r=new TransportRequests.Event();r.setKind(kind);r.setOccurredAt(LocalDateTime.now().minusHours(1));r.setLocation("实际地点");r.setPerformerName("现场人员");r.setDescription("实际事实");r.setRequestKey("00000000-0000-4000-8000-000000000002");return r;}
     @Test void createUsesOriginalRecipientEvenWhenRemainingOrderStopped(){service.create(create());verify(mapper).insert(argThat(s->s.getRecipient().equals("原收货方")&&s.getDeliveryAddress().equals("原收货地址")));}

@@ -50,6 +50,7 @@ public class ItemCirculationService {
         SalesLineEntity line=sales.line(dispatch.getLineId());
         // All dispatches of this packaging batch share one lock, so a code cannot be allocated twice.
         packing.lock(line.getPackingId());
+        dispatch=require(dispatchId);
         String hash=hash(dispatchId,"LINK",request.getItemIds(),null);
         if(replay(dispatchId,request.getRequestKey(),hash))return Map.of("savedCount",request.getItemIds().size());
         List<Long> selected=validateIds(request.getItemIds());

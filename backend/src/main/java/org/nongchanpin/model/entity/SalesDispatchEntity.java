@@ -14,6 +14,8 @@ public class SalesDispatchEntity {
     @com.fasterxml.jackson.annotation.JsonIgnore private String requestHash;
     private String movementCode;
     private Integer packageCount;
+    private Integer originalPackageCount;
+    private LocalDateTime lastCorrectionAt;
     private String packageUnit;
     private BigDecimal weightKg;
     private LocalDateTime occurredAt;

@@ -8,6 +8,7 @@ import org.nongchanpin.model.entity.TraceItemEntity;
 @Mapper
 public interface PackingTraceMapper {
     @Select("SELECT p.*,g.grade_name,h.id AS harvest_id,h.lot_code AS harvest_code,h.harvested_at,c.id AS cycle_id,c.product_id,c.product_name,c.variety,c.cycle_code,c.planted_on,f.id AS plot_id,f.plot_code,f.plot_name,f.organization_id FROM packing_lot p JOIN harvest_grade g ON g.id=p.grade_id JOIN harvest_lot h ON h.id=g.harvest_id JOIN planting_cycle c ON c.id=h.cycle_id JOIN farm_plot f ON f.id=c.plot_id WHERE p.id=#{id}") Source source(Long id);
+    @Options(flushCache=Options.FlushCachePolicy.TRUE)
     @Select("SELECT id FROM packing_lot WHERE id=#{id} FOR UPDATE") Long lock(Long id);
     @Select("SELECT * FROM packing_trace_batch WHERE packing_id=#{id}") Bridge bridge(Long id);
     @Select("SELECT b.* FROM packing_trace_batch b JOIN packing_trace_item i ON i.packing_id=b.packing_id WHERE i.item_id=#{id}") Bridge publicBridge(Long id);
