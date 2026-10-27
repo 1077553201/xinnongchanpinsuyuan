@@ -46,3 +46,6 @@ uploaded_images/
 
 # 本地设计自检产物（临时截图与诊断脚本）
 .workbuddy/preview/
+
+# Local release archives and compiled distribution packages
+releases/
